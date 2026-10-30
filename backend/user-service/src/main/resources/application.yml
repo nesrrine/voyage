@@ -1,0 +1,35 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+  # Base propre a ce microservice (H2 fichier). Pour MySQL :
+  # url: jdbc:mysql://localhost:3306/va_users?createDatabaseIfNotExist=true&serverTimezone=UTC
+  datasource:
+    url: jdbc:h2:file:./data/userdb;AUTO_SERVER=TRUE
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+app:
+  jwt:
+    # Meme cle dans tous les microservices (le user-service signe, les autres verifient)
+    secret: ${JWT_SECRET:dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
+    expiration-ms: 86400000
+  frontend-url: http://localhost:4200
+  demo-data: true
