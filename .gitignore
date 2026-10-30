@@ -1,0 +1,21 @@
+# Builds
+target/
+dist/
+.angular/
+node_modules/
+
+# Bases H2 locales et journaux
+data/
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.claude/
+
+# Ancienne version monolithique (non versionnee)
+_archive/
+
+# Secrets
+.env
