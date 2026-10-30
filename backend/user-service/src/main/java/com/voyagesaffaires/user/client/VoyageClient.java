@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * ses voyages ne sont plus proposes par le matching.
  * (PUT et non PATCH : le client HTTP par defaut de Feign ne supporte pas PATCH.)
  */
-@FeignClient(name = "voyage-service")
+@FeignClient(name = "voyage-service", fallbackFactory = VoyageClientFallback.class)
 public interface VoyageClient {
 
     @PutMapping("/api/voyages/employes/{employeId}/actif")

@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: voyage-service
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+  # Cache en memoire (Caffeine) : referentiel des villes et programmes publics
+  cache:
+    type: caffeine
+    cache-names: villes,programmes
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=10m,recordStats
   # Base propre a ce microservice (H2 fichier). Pour MySQL :
   # url: jdbc:mysql://localhost:3306/va_voyages?createDatabaseIfNotExist=true&serverTimezone=UTC
   datasource:
@@ -33,3 +43,20 @@ app:
     # Score minimum (sur 100) pour qu'un voyage soit propose comme partenaire
     seuil: 40
   demo-data: true
+
+# ---------- Resilience4j : disjoncteur sur les appels OpenFeign ----------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        # Seules les pannes (service arrete, 5xx, delai depasse) ouvrent le circuit, pas les refus metier
+        record-failure-predicate: com.voyagesaffaires.common.feign.PanneDistante
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s

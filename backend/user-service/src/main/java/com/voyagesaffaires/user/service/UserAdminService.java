@@ -14,7 +14,6 @@ import com.voyagesaffaires.user.repository.InvitationRepository;
 import com.voyagesaffaires.user.repository.UserRepository;
 import com.voyagesaffaires.user.security.CurrentUserService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +23,6 @@ import java.util.List;
 /** Gestion des employes (par leur entreprise), des comptes (par l'admin) et API interne pour les autres services. */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class UserAdminService {
 
     private final UserRepository userRepository;
@@ -123,16 +121,11 @@ public class UserAdminService {
 
     /**
      * Previent le voyage-service (OpenFeign + Eureka) qu'un employe est active / desactive.
-     * Si le service est indisponible, on ne bloque pas l'operation.
+     * En cas de panne, le circuit breaker bascule sur VoyageClientFallback : l'operation n'est pas bloquee.
      */
     void synchroniserVoyages(User u) {
-        if (u.getRole() != Role.EMPLOYE) {
-            return;
-        }
-        try {
+        if (u.getRole() == Role.EMPLOYE) {
             voyageClient.majEmployeActif(u.getId(), u.isActif());
-        } catch (RuntimeException e) {
-            log.warn("voyage-service injoignable, voyages de l'employe {} non synchronises : {}", u.getId(), e.getMessage());
         }
     }
 }

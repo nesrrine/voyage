@@ -11,12 +11,14 @@ import com.voyagesaffaires.common.exception.ApiException;
 import com.voyagesaffaires.common.security.AuthUser;
 import com.voyagesaffaires.common.security.SecurityUtils;
 import com.voyagesaffaires.voyage.client.UserClient;
+import com.voyagesaffaires.voyage.config.CacheConfig;
 import com.voyagesaffaires.voyage.dto.VoyageDtos.VoyageRequest;
 import com.voyagesaffaires.voyage.dto.VoyageDtos.VoyageResultat;
 import com.voyagesaffaires.voyage.entity.Voyage;
 import com.voyagesaffaires.voyage.repository.MatchVoyageRepository;
 import com.voyagesaffaires.voyage.repository.VoyageRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class VoyageService {
     private final MatchingService matchingService;
     private final MatchService matchService;
     private final UserClient userClient;
+    private final ReferentielCache referentielCache;
 
     /** Planning : voyages de l'employe, ou de tous les employes pour une entreprise, ou tous pour l'admin. */
     @Transactional(readOnly = true)
@@ -57,23 +60,22 @@ public class VoyageService {
         return VoyageMapper.toDto(v);
     }
 
-    /** Programmes de voyages publics (consultation + filtres). */
-    @Transactional(readOnly = true)
+    /** Programmes de voyages publics (consultation + filtres), lus depuis le cache Caffeine. */
     public List<VoyageDto> programmes(String destination, ObjetVoyage objet, DomaineActivite domaine,
                                       LocalDate du, LocalDate au) {
         String dest = destination == null ? null : destination.trim().toLowerCase();
-        return voyageRepository.findProgrammes(LocalDate.now()).stream()
+        return referentielCache.programmesAVenir(LocalDate.now()).stream()
                 .filter(v -> dest == null || dest.isEmpty()
-                        || v.getVilleDestination().toLowerCase().contains(dest)
-                        || v.getPaysDestination().toLowerCase().contains(dest))
-                .filter(v -> objet == null || v.getObjet() == objet)
-                .filter(v -> domaine == null || v.getEntrepriseDomaine() == domaine)
-                .filter(v -> du == null || !v.getDateFin().isBefore(du))
-                .filter(v -> au == null || !v.getDateDebut().isAfter(au))
-                .map(VoyageMapper::toDto)
+                        || v.villeDestination().toLowerCase().contains(dest)
+                        || v.paysDestination().toLowerCase().contains(dest))
+                .filter(v -> objet == null || v.objet() == objet)
+                .filter(v -> domaine == null || v.entrepriseDomaine() == domaine)
+                .filter(v -> du == null || !v.dateFin().isBefore(du))
+                .filter(v -> au == null || !v.dateDebut().isAfter(au))
                 .toList();
     }
 
+    @CacheEvict(cacheNames = CacheConfig.PROGRAMMES, allEntries = true)
     @Transactional
     public VoyageResultat creer(VoyageRequest req) {
         AuthUser u = SecurityUtils.currentUser();
@@ -86,6 +88,7 @@ public class VoyageService {
         return new VoyageResultat(VoyageMapper.toDto(v), matchs);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.PROGRAMMES, allEntries = true)
     @Transactional
     public VoyageResultat modifier(Long id, VoyageRequest req) {
         AuthUser u = SecurityUtils.currentUser();
@@ -101,6 +104,7 @@ public class VoyageService {
         return new VoyageResultat(VoyageMapper.toDto(v), matchs);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.PROGRAMMES, allEntries = true)
     @Transactional
     public void supprimer(Long id) {
         AuthUser u = SecurityUtils.currentUser();
@@ -139,6 +143,7 @@ public class VoyageService {
      * Appele par le user-service quand un employe est active / desactive :
      * ses voyages sortent (ou reviennent) dans les programmes et le matching.
      */
+    @CacheEvict(cacheNames = CacheConfig.PROGRAMMES, allEntries = true)
     @Transactional
     public int majEmployeActif(Long employeId, boolean actif) {
         AuthUser u = SecurityUtils.currentUser();

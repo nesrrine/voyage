@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.voyagesaffaires.voyage.TestData.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +43,7 @@ class VoyageServiceTest {
     @Mock MatchingService matchingService;
     @Mock MatchService matchService;
     @Mock UserClient userClient;
+    @Mock ReferentielCache referentielCache;
     @InjectMocks VoyageService voyageService;
 
     private final LocalDate t = LocalDate.now();
@@ -220,7 +222,8 @@ class VoyageServiceTest {
         Voyage paris = voyage(1, amine, "Paris", t.plusDays(1), t.plusDays(3));
         Voyage dubai = voyage(2, claire, "Dubai", t.plusDays(1), t.plusDays(3));
         Voyage parisFinance = voyage(3, claire, "Paris", t.plusDays(5), t.plusDays(6));
-        when(voyageRepository.findProgrammes(any())).thenReturn(List.of(paris, dubai, parisFinance));
+        when(referentielCache.programmesAVenir(any()))
+                .thenReturn(Stream.of(paris, dubai, parisFinance).map(VoyageMapper::toDto).toList());
 
         List<VoyageDto> res = voyageService.programmes("par", null, DomaineActivite.FINANCE, null, null);
 

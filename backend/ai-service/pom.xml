@@ -27,6 +27,11 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
+        <!-- Disjoncteur (circuit breaker) Resilience4j sur les appels OpenFeign -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
         <!-- SDK officiel Anthropic (API Claude) -->
         <dependency>
             <groupId>com.anthropic</groupId>

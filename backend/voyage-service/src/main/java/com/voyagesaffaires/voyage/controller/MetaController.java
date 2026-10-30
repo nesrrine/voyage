@@ -4,7 +4,7 @@ import com.voyagesaffaires.common.dto.StatsDtos.DashboardDto;
 import com.voyagesaffaires.common.enums.DomaineActivite;
 import com.voyagesaffaires.common.enums.ObjetVoyage;
 import com.voyagesaffaires.voyage.dto.VoyageDtos.VilleDto;
-import com.voyagesaffaires.voyage.repository.VilleRepository;
+import com.voyagesaffaires.voyage.service.ReferentielCache;
 import com.voyagesaffaires.voyage.service.StatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,12 +19,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MetaController {
 
-    private final VilleRepository villeRepository;
+    private final ReferentielCache referentielCache;
     private final StatsService statsService;
 
     @GetMapping("/meta/villes")
     public List<VilleDto> villes() {
-        return villeRepository.findAllByOrderByPaysAscNomAsc().stream().map(VilleDto::from).toList();
+        return referentielCache.villes();
     }
 
     @GetMapping("/meta/domaines")

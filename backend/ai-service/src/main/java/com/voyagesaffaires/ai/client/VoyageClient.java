@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.List;
 
 /** Donnees du voyage-service utilisees comme contexte par l'IA (jeton de l'utilisateur relaye). */
-@FeignClient(name = "voyage-service")
+@FeignClient(name = "voyage-service", fallbackFactory = VoyageClientFallback.class)
 public interface VoyageClient {
 
     @GetMapping("/api/voyages")

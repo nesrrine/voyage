@@ -5,7 +5,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "forum-service")
+@FeignClient(name = "forum-service", fallbackFactory = ForumClientFallback.class)
 public interface ForumClient {
 
     @GetMapping("/api/forum/posts/{id}")

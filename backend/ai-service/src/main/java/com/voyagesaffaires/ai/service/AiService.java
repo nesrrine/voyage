@@ -13,23 +13,21 @@ import com.voyagesaffaires.common.exception.ApiException;
 import com.voyagesaffaires.common.security.AuthUser;
 import com.voyagesaffaires.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Les 5 fonctionnalites IA de la plateforme :
  * assistant conversationnel, explication des matchs, programme de voyage,
  * forum intelligent (resume + moderation) et recommandations.
- * Le contexte (voyages, invitations, publications) est demande aux autres microservices via OpenFeign.
+ * Le contexte (voyages, invitations, publications) est demande aux autres microservices via OpenFeign,
+ * proteges par un circuit breaker (voir VoyageClientFallback / ForumClientFallback).
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AiService {
 
     private static final String SEPARATEUR = "---MESSAGE---";
@@ -189,11 +187,11 @@ public class AiService {
         if (u.entrepriseNom() != null) {
             sb.append("\nEntreprise : ").append(u.entrepriseNom()).append(", domaine ").append(u.domaine());
         }
-        List<VoyageDto> voyages = u.role() == Role.ADMIN ? List.of() : appel(voyageClient::planning, List.of());
+        List<VoyageDto> voyages = u.role() == Role.ADMIN ? List.of() : voyageClient.planning();
         sb.append("\nSes voyages (").append(voyages.size()).append(") :\n");
         voyages.stream().limit(20).forEach(v -> sb.append("- ").append(decrire(v)).append('\n'));
         if (u.role() == Role.EMPLOYE) {
-            List<MatchDto> recues = appel(voyageClient::invitationsRecues, List.of());
+            List<MatchDto> recues = voyageClient.invitationsRecues();
             long enAttente = recues.stream().filter(m -> m.statut() == StatutMatch.EN_ATTENTE).count();
             sb.append("Invitations de voyage recues : ").append(recues.size()).append(" dont ").append(enAttente).append(" en attente\n");
         }
@@ -201,22 +199,13 @@ public class AiService {
     }
 
     private String programmesAVenir(int limite) {
-        String liste = appel(voyageClient::programmes, List.<VoyageDto>of()).stream()
+        String liste = voyageClient.programmes().stream()
                 .limit(limite)
                 .map(v -> "- " + decrire(v))
                 .collect(Collectors.joining("\n"));
         return liste.isEmpty() ? "(aucun)" : liste;
     }
 
-    /** Le contexte est un plus : si le voyage-service ne repond pas, l'IA repond quand meme. */
-    private <T> T appel(Supplier<T> appel, T repli) {
-        try {
-            return appel.get();
-        } catch (RuntimeException e) {
-            log.warn("Contexte indisponible pour l'IA : {}", e.getMessage());
-            return repli;
-        }
-    }
 
     /** Description d'un voyage pour le modele (sans coordonnees personnelles). */
     static String decrire(VoyageDto v) {

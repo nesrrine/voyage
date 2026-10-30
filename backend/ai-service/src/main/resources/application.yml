@@ -6,6 +6,8 @@ spring:
     name: ai-service
   cloud:
     openfeign:
+      circuitbreaker:
+        enabled: true
       client:
         config:
           default:
@@ -26,3 +28,20 @@ app:
     # La cle est lue dans la variable d'environnement ANTHROPIC_API_KEY (ne jamais l'ecrire ici)
     api-key: ${ANTHROPIC_API_KEY:}
     model: claude-opus-5-5
+
+# ---------- Resilience4j : disjoncteur sur les appels OpenFeign ----------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        # Seules les pannes (service arrete, 5xx, delai depasse) ouvrent le circuit, pas les refus metier
+        record-failure-predicate: com.voyagesaffaires.common.feign.PanneDistante
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s

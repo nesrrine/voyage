@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /** Appels vers le user-service (adresse trouvee dans Eureka, jeton JWT relaye). */
-@FeignClient(name = "user-service")
+@FeignClient(name = "user-service", fallbackFactory = UserClientFallback.class)
 public interface UserClient {
 
     @GetMapping("/api/users/{id}")

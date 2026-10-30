@@ -11,7 +11,6 @@ import com.voyagesaffaires.voyage.entity.Voyage;
 import com.voyagesaffaires.voyage.repository.MatchVoyageRepository;
 import com.voyagesaffaires.voyage.repository.VoyageRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,16 +18,15 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Supplier;
 
 /**
  * Tableau de bord d'aide a la decision. Les donnees des voyages sont locales ;
  * les indicateurs utilisateurs et forum sont demandes au user-service et au forum-service
- * via OpenFeign. Si un service est indisponible, le tableau de bord s'affiche quand meme.
+ * via OpenFeign. Si un service est indisponible, le circuit breaker renvoie des valeurs de repli
+ * (UserClientFallback / ForumClientFallback) : le tableau de bord s'affiche quand meme.
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class StatsService {
 
     private static final DateTimeFormatter MOIS = DateTimeFormatter.ofPattern("MM/yyyy");
@@ -49,8 +47,8 @@ public class StatsService {
     }
 
     private DashboardDto admin() {
-        UserStats users = appel("user-service", userClient::statistiques, UserStats.vide());
-        ForumStats forum = appel("forum-service", forumClient::statistiques, ForumStats.vide());
+        UserStats users = userClient.statistiques();
+        ForumStats forum = forumClient.statistiques();
         List<CarteStat> cartes = List.of(
                 new CarteStat("Entreprises", users.entreprises(), "business"),
                 new CarteStat("Employes", users.employes(), "groups"),
@@ -68,7 +66,7 @@ public class StatsService {
     }
 
     private DashboardDto entreprise(Long eid) {
-        UserStats users = appel("user-service", userClient::statistiques, UserStats.vide());
+        UserStats users = userClient.statistiques();
         List<MatchVoyage> acceptes = matchRepository.findAcceptesEntreprise(eid);
         Map<String, Long> partenaires = new TreeMap<>();
         Set<Long> entreprisesPartenaires = new HashSet<>();
@@ -118,15 +116,6 @@ public class StatsService {
         return new DashboardDto(cartes, g);
     }
 
-    /** Appel d'un autre microservice avec valeur de repli s'il ne repond pas. */
-    private <T> T appel(String service, Supplier<T> appel, T repli) {
-        try {
-            return appel.get();
-        } catch (RuntimeException e) {
-            log.warn("{} indisponible pour le tableau de bord : {}", service, e.getMessage());
-            return repli;
-        }
-    }
 
     /** Nombre de voyages par mois de depart, sur 12 mois glissants (5 mois passes, mois courant, 6 a venir). */
     private Serie parMois(List<Voyage> voyages) {

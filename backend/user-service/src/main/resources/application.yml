@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: user-service
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
   # Base propre a ce microservice (H2 fichier). Pour MySQL :
   # url: jdbc:mysql://localhost:3306/va_users?createDatabaseIfNotExist=true&serverTimezone=UTC
   datasource:
@@ -33,3 +37,20 @@ app:
     expiration-ms: 86400000
   frontend-url: http://localhost:4200
   demo-data: true
+
+# ---------- Resilience4j : disjoncteur sur les appels OpenFeign ----------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+        # Seules les pannes (service arrete, 5xx, delai depasse) ouvrent le circuit, pas les refus metier
+        record-failure-predicate: com.voyagesaffaires.common.feign.PanneDistante
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s

@@ -21,8 +21,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /** Gestion des employes et communication avec le voyage-service (OpenFeign simule). */
@@ -57,14 +55,6 @@ class UserAdminServiceTest {
         verify(voyageClient).majEmployeActif(6L, false);
     }
 
-    @Test
-    void siLeVoyageServiceEstIndisponibleLaDesactivationReussitQuandMeme() {
-        when(currentUser.get()).thenReturn(compteTechsoft);
-        when(userRepository.findById(6L)).thenReturn(Optional.of(employe(6, techsoft)));
-        doThrow(new RuntimeException("voyage-service arrete")).when(voyageClient).majEmployeActif(anyLong(), anyBoolean());
-
-        assertThat(service.basculerStatutEmploye(6L).actif()).isFalse();
-    }
 
     @Test
     void uneEntrepriseNePeutPasDesactiverLEmployeDUneAutre() {

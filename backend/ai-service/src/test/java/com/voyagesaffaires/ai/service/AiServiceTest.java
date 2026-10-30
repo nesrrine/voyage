@@ -150,14 +150,17 @@ class AiServiceTest {
     }
 
     @Test
-    void lAssistantRepondMemeSiLeVoyageServiceEstIndisponible() {
-        when(voyageClient.planning()).thenThrow(new RuntimeException("voyage-service arrete"));
-        when(voyageClient.invitationsRecues()).thenThrow(new RuntimeException("voyage-service arrete"));
-        when(voyageClient.programmes()).thenThrow(new RuntimeException("voyage-service arrete"));
+    void lAssistantEnvoieLeContexteDeLUtilisateurAClaude() {
+        when(voyageClient.planning()).thenReturn(List.of(voyage(2, "Youssef Gharbi", "GreenPower", DomaineActivite.ENERGIE)));
+        when(voyageClient.invitationsRecues()).thenReturn(List.of(match()));
+        when(voyageClient.programmes()).thenReturn(List.of());
         when(claude.converser(anyString(), any(), any())).thenReturn("Bonjour !");
 
         TexteResponse r = aiService.chat(new ChatRequest(List.of(new ChatMessage("user", "Bonjour"))));
 
         assertThat(r.texte()).isEqualTo("Bonjour !");
+        ArgumentCaptor<String> consignes = ArgumentCaptor.forClass(String.class);
+        verify(claude).converser(consignes.capture(), any(), any());
+        assertThat(consignes.getValue()).contains("Youssef Gharbi", "GreenPower", "1 dont 1 en attente");
     }
 }

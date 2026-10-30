@@ -4,8 +4,11 @@ import com.voyagesaffaires.common.enums.DomaineActivite;
 import com.voyagesaffaires.common.security.AuthUser;
 import com.voyagesaffaires.common.security.JwtService;
 import com.voyagesaffaires.voyage.TestData;
+import com.voyagesaffaires.voyage.config.CacheConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -13,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,11 +36,34 @@ class VoyageIntegrationTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired CacheManager cacheManager;
 
     private final AuthUser sarra = TestData.employe(7, "Sarra", 1, "TechSoft", DomaineActivite.INFORMATIQUE);
 
     private String bearer(AuthUser u) {
         return "Bearer " + jwtService.generateToken(u);
+    }
+
+    @Test
+    void lesProgrammesSontMisEnCacheEtInvalidesALaCreationDUnVoyage() throws Exception {
+        Cache cache = cacheManager.getCache(CacheConfig.PROGRAMMES);
+        cache.clear();
+
+        mvc.perform(get("/api/voyages/programmes").header("Authorization", bearer(sarra))).andExpect(status().isOk());
+        assertThat(cache.get(LocalDate.now())).as("rempli a la premiere lecture").isNotNull();
+
+        String debut = LocalDate.now().plusDays(90).toString();
+        mvc.perform(post("/api/voyages").header("Authorization", bearer(sarra))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"titre":"Voyage cache","villeDestination":"Tokyo","paysDestination":"Japon",
+                                 "latitude":35.6762,"longitude":139.6503,"dateDebut":"%s","dateFin":"%s","objet":"SALON"}
+                                """.formatted(debut, debut)))
+                .andExpect(status().isCreated());
+        assertThat(cache.get(LocalDate.now())).as("invalide apres une ecriture").isNull();
+
+        mvc.perform(get("/api/voyages/programmes").param("destination", "Tokyo").header("Authorization", bearer(sarra)))
+                .andExpect(jsonPath("$[0].titre").value("Voyage cache"));
     }
 
     @Test
