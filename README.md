@@ -4,8 +4,9 @@ Application web qui met en relation les employés de différentes entreprises pa
 vers les mêmes destinations, aux mêmes dates, et dont les domaines d'activité sont complémentaires.
 
 - **Backend** : architecture **microservices** Spring Boot 3.3 / Spring Cloud 2023 (Java 17) :
-  **Eureka** (annuaire), **Spring Cloud Gateway** (point d'entrée), **OpenFeign** (appels entre services),
-  Spring Security + JWT, Spring Data JPA, une base H2 par service (MySQL possible)
+  **Eureka** (annuaire), **Spring Cloud Gateway** (point d'entrée sécurisé par JWT), **OpenFeign** (appels entre
+  services) protégé par un **circuit breaker Resilience4j**, cache **Caffeine**, Spring Security + JWT,
+  Spring Data JPA, une base H2 par service (MySQL possible)
 - **Frontend** : Angular 19 (composants standalone, signals), Angular Material, Chart.js (ng2-charts)
 - **IA** : API Claude d'Anthropic (SDK Java officiel)
 
@@ -37,7 +38,7 @@ vers les mêmes destinations, aux mêmes dates, et dont les domaines d'activité
 | Module Maven | Port | Rôle | Module du sujet |
 |---|---|---|---|
 | `discovery-server` | 8761 | Serveur **Eureka** : chaque service s'y enregistre | infrastructure |
-| `api-gateway` | 8080 | **Spring Cloud Gateway** : point d'entrée unique, route `/api/**` vers le bon service, CORS | infrastructure |
+| `api-gateway` | 8080 | **Spring Cloud Gateway** : point d'entrée unique, **vérifie le JWT et les rôles**, route `/api/**` vers le bon service, CORS | infrastructure |
 | `user-service` | 8081 | Inscription entreprise, authentification (émet le JWT), autorisation, invitations des employés, comptes, administration | **Gestion des utilisateurs** |
 | `voyage-service` | 8082 | CRUD voyages, **algorithme de matching**, invitations de voyage, programmes, référentiel des villes, statistiques | **Gestion des voyages** |
 | `forum-service` | 8083 | Publications, commentaires, **Like / Dislike** | **Forum** |
@@ -69,15 +70,40 @@ erreurs du service appelé (403, 404...) sont converties en `ApiException` avec 
 
 Si un service appelé est arrêté, l'appelant continue de fonctionner (valeur de repli, avertissement dans les logs).
 
-### Sécurité répartie
+### Sécurité à deux niveaux (JWT)
 
-- Le **user-service** vérifie le mot de passe (BCrypt) et signe un **JWT** contenant l'identifiant, le rôle,
-  le nom, le poste et l'entreprise de l'utilisateur.
-- Les autres services **vérifient la signature** du jeton (clé partagée `app.jwt.secret`) et lisent l'utilisateur
-  dans le jeton (`AuthUser`), sans interroger la base du user-service.
-- Après une modification du profil ou de l'entreprise, le user-service renvoie un **nouveau jeton** (le frontend le
-  remplace automatiquement).
-- Autorisation : règles d'URL par service + `@PreAuthorize` + contrôles d'appartenance dans les services.
+**Niveau 1 — API Gateway** (`api-gateway/.../security/JwtGatewayFilter`) : avant tout routage, la gateway
+vérifie la signature et l'expiration du jeton, puis le rôle requis par le chemin :
+
+| Chemin | Accès à la gateway |
+|---|---|
+| `POST /api/auth/login`, `/register-*`, `GET /api/auth/invitation/**`, `GET /api/meta/**` | public |
+| `/api/admin/**` | ADMIN |
+| `/api/invitations/**`, `/api/entreprise/**` | ENTREPRISE |
+| `/api/matchs/**` | EMPLOYE, ENTREPRISE |
+| tout le reste de `/api/**` | utilisateur connecté |
+
+Une requête refusée ne parvient jamais au microservice (401 / 403 avec `"source":"api-gateway"`). La gateway
+transmet l'identité vérifiée (`X-User-Id`, `X-User-Role`) et supprime ces en-têtes s'ils viennent du client.
+
+**Niveau 2 — chaque microservice** (`common/.../security`) : chaque service revérifie lui-même le jeton
+(un appel direct sur son port, sans passer par la gateway, est refusé), applique ses règles d'URL et
+`@PreAuthorize`, puis les règles d'appartenance dans les services (un employé ne modifie que ses voyages, une
+entreprise que ceux de ses employés, seul le destinataire répond à une invitation de voyage, etc.).
+
+- Le **user-service** vérifie le mot de passe (BCrypt) et signe le **JWT** (identifiant, rôle, nom, poste, entreprise).
+- Après une modification du profil ou de l'entreprise, il renvoie un **nouveau jeton** (remplacé par le frontend).
+
+### Résilience et performance
+
+- **Circuit breaker Resilience4j** sur tous les clients OpenFeign, avec une `FallbackFactory` par client :
+  après 5 échecs (service arrêté, erreur 5xx, délai > 10 s), le circuit s'ouvre et la réponse de repli est
+  immédiate ; il se referme tout seul quand le service revient. Les refus métier (403, 404) ne comptent pas
+  comme des pannes (`common/.../feign/PanneDistante`) et sont propagés tels quels.
+  *Mesure réelle : forum-service arrêté → le tableau de bord admin répond toujours (publications = 0) ;
+  les 4 premiers appels prennent ~2 s, puis le circuit s'ouvre et les réponses tombent à ~30 ms.*
+- **Cache Caffeine** (voyage-service) : référentiel des villes et programmes publics mis en cache
+  (`ReferentielCache`), invalidés par `@CacheEvict` à chaque création, modification ou suppression de voyage.
 
 ### Une base de données par service
 
@@ -86,6 +112,18 @@ Chaque microservice possède sa propre base (`backend/<service>/data/`). Un voya
 de même `auteurId` et le nom de l'auteur. Le jeu de démonstration du user-service crée les employés avec des
 identifiants fixes (6 à 11) repris par le voyage-service et le forum-service : pour repartir de zéro,
 **supprimer les trois dossiers `data/` ensemble**.
+
+## Couverture de la grille d'évaluation (Sprint 2)
+
+| Critère | Où le trouver |
+|---|---|
+| **AA1** Logique métier avancée et relations entre entités (Module 2) | `voyage-service` : `MatchingService` (score multicritère, Haversine), relations `Voyage` ↔ `MatchVoyage` (source / cible), référentiel `Ville`, cycle de vie des invitations de voyage (`MatchService`), statistiques (`StatsService`). Angular : formulaire dynamique (autocomplétion des villes → coordonnées GPS, périmètre, puces de domaines), détail du score, graphiques |
+| **AA2** OpenFeign et routage par l'API Gateway | Routes de `api-gateway/application.yml` (`lb://` + Eureka) ; clients `@FeignClient` des 3 services avec relais du JWT (`common/feign/FeignConfig`) ; tableau « Communication entre microservices » ci-dessus |
+| **AA3** Sécurité JWT, niveau Gateway (1 pt) | `JwtGatewayFilter` + `RegleAcces` (401 / 403 avant routage) ; `JwtGatewayFilterTest` |
+| **AA3** Sécurité JWT, niveau microservices (1 pt) | `common/security` (filtre JWT dans chaque service), `SecurityConfig` de chaque service, `@PreAuthorize`, contrôles d'appartenance ; tests `*IntegrationTest` |
+| **AA4** Tests backend et frontend | 91 tests JUnit / Mockito / MockMvc et 38 tests Jasmine / Karma (section Tests) |
+| **C4** Git et standards | Dépôt Git : un commit par module puis par fonctionnalité, messages au format *Conventional Commits* (`feat(...)`, `test(...)`, `docs(...)`), README à jour |
+| **C5** Innovation / complexité technique | Intégration d'une API externe d'IA (Claude) dans un microservice dédié ; circuit breaker Resilience4j avec repli ; cache Caffeine ; sécurité JWT à deux niveaux |
 
 ## Lancer le projet
 
@@ -198,28 +236,45 @@ publication sur le forum n'est pas modérée. Ne jamais écrire la clé dans un 
 
 La page de connexion propose des boutons pour remplir ces comptes automatiquement.
 
-## Tests (backend)
+## Tests
+
+**129 tests automatisés** : 91 côté backend (JUnit 5, Mockito, AssertJ, MockMvc) et 38 côté frontend (Jasmine, Karma).
 
 ```bash
-cd backend
-mvn test
+cd backend && mvn test
 ```
 
-72 tests (JUnit 5, Mockito, AssertJ, MockMvc). Eureka est désactivé et chaque service utilise une base H2
-en mémoire ; les appels OpenFeign et l'API Claude sont simulés (aucun appel réseau, rien de payant).
+```bash
+cd frontend && npm run test:ci
+```
+
+Côté backend, Eureka est désactivé et chaque service utilise une base H2 en mémoire. Les appels OpenFeign
+et l'API Claude sont simulés : aucun appel réseau, rien de payant.
 
 | Service | Classe de test | Ce qui est vérifié |
 |---|---|---|
+| api-gateway | `JwtGatewayFilterTest` | 1er niveau de sécurité : accès publics, 401 sans jeton / jeton falsifié / expiré, 403 par rôle, transmission de l'identité, en-têtes usurpés supprimés |
 | user-service | `AuthServiceTest` | Inscription entreprise (email déjà pris, contenu du JWT), inscription employé (invitation expirée / annulée / valide) |
 | user-service | `InvitationServiceTest` | Invitations employés : doublons, lien et expiration, droits entre entreprises |
-| user-service | `UserAdminServiceTest` | Désactivation d'un employé et appel Feign au voyage-service (y compris service indisponible) |
+| user-service | `UserAdminServiceTest`, `VoyageClientFallbackTest` | Désactivation d'un employé, appel Feign au voyage-service, repli si le service est arrêté |
 | user-service | `UserIntegrationTest` | Connexion, contenu du jeton, 401 / 403 par rôle, API inter-services `/api/users/**` |
 | voyage-service | `MatchingServiceTest` | Algorithme : distance Haversine, chevauchement des dates, périmètre, compatibilité des domaines, score |
 | voyage-service | `VoyageServiceTest` | CRUD voyages : dates invalides, droits, employé récupéré via Feign, relance du matching, désactivation, filtres |
 | voyage-service | `MatchServiceTest` | Invitations de voyage : seul le destinataire répond, coordonnées dévoilées uniquement après acceptation |
-| voyage-service | `VoyageIntegrationTest` | JWT signé par le user-service accepté, validation, création avec matching, employé désactivé |
+| voyage-service | `FallbacksTest` | Circuit breaker : tableau de bord disponible sans user-service / forum-service, 503 explicite, refus métier propagés |
+| voyage-service | `VoyageIntegrationTest` | JWT accepté, validation, création avec matching, employé désactivé, cache rempli puis invalidé |
 | forum-service | `ForumServiceTest` | Like / Dislike (ajout, annulation, bascule), auteur lu dans le jeton, suppression, tri, statistiques |
-| ai-service | `AiServiceTest` / `ClaudeServiceTest` | Modération, découpage de l'explication, prompts, propagation des erreurs Feign, IA non configurée |
+| ai-service | `AiServiceTest`, `ClaudeServiceTest`, `FallbacksTest` | Modération, découpage de l'explication, contenu des prompts, erreurs Feign, repli sans contexte, IA non configurée |
+
+| Frontend (spec) | Ce qui est vérifié |
+|---|---|
+| `auth.service.spec` | Ouverture, restauration et expiration de la session, nouveau jeton après modification du profil, déconnexion |
+| `auth.interceptor.spec` | Jeton ajouté aux seuls appels de l'API, déconnexion sur 401 (sauf échec de connexion), pas sur 403 |
+| `guards.spec` | `authGuard` (redirection avec `returnUrl`), `guestGuard`, `roleGuard` par rôle |
+| `api.service.spec` | Filtres des programmes, référentiel chargé une seule fois, routes d'invitation, Like / Dislike |
+| `match-card.component.spec` | Partenaire et score affichés, coordonnées seulement après acceptation, bouton Accepter, analyse IA |
+| `login.component.spec` | Validation du formulaire, comptes de démo, connexion et redirection, message d'erreur de l'API |
+| `labels.spec`, `notify.service.spec` | Libellés français, dates sans décalage de fuseau, messages d'erreur de l'API |
 
 ## API REST (principaux endpoints, via la gateway)
 
