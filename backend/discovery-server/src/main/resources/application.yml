@@ -1,0 +1,18 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: discovery-server
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # Le serveur ne s'enregistre pas aupres de lui-meme
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # En developpement : retirer rapidement les services arretes
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000

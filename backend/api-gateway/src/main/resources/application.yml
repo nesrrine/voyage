@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      # CORS gere ici, une seule fois, pour tous les services
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "http://localhost:4200"
+            allowed-methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+            allowed-headers: "*"
+            allow-credentials: true
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/**,/api/account/**,/api/invitations/**,/api/entreprise/**,/api/admin/**,/api/users/**
+        - id: voyage-service
+          uri: lb://voyage-service
+          predicates:
+            - Path=/api/voyages/**,/api/matchs/**,/api/meta/**,/api/stats/**
+        - id: forum-service
+          uri: lb://forum-service
+          predicates:
+            - Path=/api/forum/**
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
+          # Les reponses de l'IA peuvent prendre du temps
+          metadata:
+            response-timeout: 120000
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
