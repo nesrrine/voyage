@@ -1,0 +1,115 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Employés &amp; invitations</h1>
+      <p>Invitez vos employés à rejoindre la plateforme : ils s'inscrivent via le lien d'invitation.</p>
+    </div>
+  </div>
+
+  <mat-card class="card card-pad mb" appearance="outlined">
+    <h3 style="margin-top: 0">Inviter un employé</h3>
+    <form [formGroup]="form" (ngSubmit)="inviter()" class="row">
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Email de l'employé</mat-label>
+        <mat-icon matPrefix>mail</mat-icon>
+        <input matInput type="email" formControlName="email">
+        <mat-error>Email invalide</mat-error>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Poste (optionnel)</mat-label>
+        <input matInput formControlName="poste">
+      </mat-form-field>
+      <button mat-flat-button type="submit" [disabled]="envoi()" style="margin-bottom: 20px">
+        <mat-icon>send</mat-icon>Envoyer l'invitation
+      </button>
+    </form>
+    @if (dernierLien(); as lien) {
+      <div class="row badge green" style="padding: 10px 14px; border-radius: 10px; white-space: normal">
+        <mat-icon>link</mat-icon>
+        <span style="flex: 1; word-break: break-all">{{ lien }}</span>
+        <button mat-button type="button" (click)="copier(lien)"><mat-icon>content_copy</mat-icon>Copier</button>
+      </div>
+      <p class="muted small">Transmettez ce lien à l'employé (valable 7 jours).</p>
+    }
+  </mat-card>
+
+  <mat-tab-group animationDuration="150ms">
+    <mat-tab [label]="'Employés (' + employes().length + ')'">
+      <mat-card class="card mt" appearance="outlined">
+        <div class="table-wrap">
+          <table mat-table [dataSource]="employes()">
+            <ng-container matColumnDef="nom">
+              <th mat-header-cell *matHeaderCellDef>Nom</th>
+              <td mat-cell *matCellDef="let e"><strong>{{ e.prenom }} {{ e.nom }}</strong></td>
+            </ng-container>
+            <ng-container matColumnDef="email">
+              <th mat-header-cell *matHeaderCellDef>Email</th>
+              <td mat-cell *matCellDef="let e">{{ e.email }}<div class="muted small">{{ e.telephone }}</div></td>
+            </ng-container>
+            <ng-container matColumnDef="poste">
+              <th mat-header-cell *matHeaderCellDef>Poste</th>
+              <td mat-cell *matCellDef="let e">{{ e.poste }}</td>
+            </ng-container>
+            <ng-container matColumnDef="dateCreation">
+              <th mat-header-cell *matHeaderCellDef>Inscrit le</th>
+              <td mat-cell *matCellDef="let e">{{ e.dateCreation | date: 'dd/MM/yyyy' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actif">
+              <th mat-header-cell *matHeaderCellDef>Compte actif</th>
+              <td mat-cell *matCellDef="let e"><mat-slide-toggle [checked]="e.actif" (change)="basculer(e)" /></td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="colonnesEmployes"></tr>
+            <tr mat-row *matRowDef="let row; columns: colonnesEmployes"></tr>
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="colonnesEmployes.length"><div class="empty"><mat-icon>group_off</mat-icon><p>Aucun employé inscrit.</p></div></td>
+            </tr>
+          </table>
+        </div>
+      </mat-card>
+    </mat-tab>
+
+    <mat-tab [label]="'Invitations (' + invitations().length + ')'">
+      <mat-card class="card mt" appearance="outlined">
+        <div class="table-wrap">
+          <table mat-table [dataSource]="invitations()">
+            <ng-container matColumnDef="email">
+              <th mat-header-cell *matHeaderCellDef>Email</th>
+              <td mat-cell *matCellDef="let i">{{ i.email }}</td>
+            </ng-container>
+            <ng-container matColumnDef="poste">
+              <th mat-header-cell *matHeaderCellDef>Poste</th>
+              <td mat-cell *matCellDef="let i">{{ i.poste }}</td>
+            </ng-container>
+            <ng-container matColumnDef="statut">
+              <th mat-header-cell *matHeaderCellDef>Statut</th>
+              <td mat-cell *matCellDef="let i"><span class="badge {{ statuts[i.statut].color }}">{{ statuts[i.statut].label }}</span></td>
+            </ng-container>
+            <ng-container matColumnDef="dateExpiration">
+              <th mat-header-cell *matHeaderCellDef>Expiration</th>
+              <td mat-cell *matCellDef="let i">{{ i.dateExpiration | date: 'dd/MM/yyyy HH:mm' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let i" style="text-align: right; white-space: nowrap">
+                @if (i.lien) {
+                  <button mat-icon-button (click)="copier(i.lien)" matTooltip="Copier le lien"><mat-icon>content_copy</mat-icon></button>
+                }
+                @if (i.statut !== 'ACCEPTEE') {
+                  <button mat-icon-button (click)="renouveler(i)" matTooltip="Renouveler"><mat-icon>refresh</mat-icon></button>
+                }
+                @if (i.statut === 'EN_ATTENTE') {
+                  <button mat-icon-button (click)="annuler(i)" matTooltip="Annuler"><mat-icon color="warn">cancel</mat-icon></button>
+                }
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="colonnesInvitations"></tr>
+            <tr mat-row *matRowDef="let row; columns: colonnesInvitations"></tr>
+            <tr class="mat-row" *matNoDataRow>
+              <td class="mat-cell" [attr.colspan]="colonnesInvitations.length"><div class="empty"><mat-icon>mail</mat-icon><p>Aucune invitation envoyée.</p></div></td>
+            </tr>
+          </table>
+        </div>
+      </mat-card>
+    </mat-tab>
+  </mat-tab-group>
+</div>

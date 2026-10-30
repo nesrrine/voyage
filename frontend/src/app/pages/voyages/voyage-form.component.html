@@ -1,0 +1,119 @@
+<div class="page" style="max-width: 900px">
+  <div class="page-header">
+    <div>
+      <h1>{{ enEdition ? 'Modifier le voyage' : 'Nouveau voyage d\'affaires' }}</h1>
+      <p>À l'enregistrement, l'algorithme de matching recherche des partenaires de voyage
+        (domaine d'activité, dates, destination &amp; périmètre).</p>
+    </div>
+    <a mat-button routerLink="/voyages"><mat-icon>arrow_back</mat-icon>Retour</a>
+  </div>
+
+  <mat-card class="card card-pad" appearance="outlined">
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      @if (auth.hasRole('ENTREPRISE')) {
+        <mat-form-field appearance="outline" class="full">
+          <mat-label>Employé qui voyage</mat-label>
+          <mat-icon matPrefix>badge</mat-icon>
+          <mat-select formControlName="employeId">
+            @for (e of employes(); track e.id) {
+              <mat-option [value]="e.id">{{ e.prenom }} {{ e.nom }} — {{ e.poste }}</mat-option>
+            }
+          </mat-select>
+          @if (!employes().length) { <mat-hint>Invitez d'abord des employés depuis « Employés &amp; invitations ».</mat-hint> }
+          <mat-error>Choisissez l'employé</mat-error>
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Titre du voyage</mat-label>
+        <input matInput formControlName="titre" placeholder="Ex : Salon international de l'innovation">
+        <mat-error>Le titre est obligatoire</mat-error>
+      </mat-form-field>
+
+      <h3>Destination</h3>
+      <div class="row">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Ville</mat-label>
+          <mat-icon matPrefix>place</mat-icon>
+          <input matInput formControlName="ville" [matAutocomplete]="auto" (blur)="villeSaisie()">
+          <mat-autocomplete #auto="matAutocomplete" (optionSelected)="choisirVille($event)">
+            @for (v of villesFiltrees(); track v.id) {
+              <mat-option [value]="v.nom">{{ v.nom }} <span class="muted small">— {{ v.pays }}</span></mat-option>
+            }
+          </mat-autocomplete>
+          @if (form.controls.latitude.value !== null) {
+            <mat-hint>GPS : {{ form.controls.latitude.value | number: '1.2-4' }}, {{ form.controls.longitude.value | number: '1.2-4' }}</mat-hint>
+          }
+          <mat-error>Choisissez une ville dans la liste</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Pays</mat-label>
+          <input matInput formControlName="paysDestination" readonly>
+        </mat-form-field>
+      </div>
+
+      <div class="mb">
+        <label class="muted small">Périmètre de recherche de partenaires : <strong>{{ form.controls.rayonKm.value }} km</strong> autour de la destination</label>
+        <mat-slider min="10" max="500" step="10" discrete [displayWith]="formatKm" class="full">
+          <input matSliderThumb formControlName="rayonKm">
+        </mat-slider>
+      </div>
+
+      <h3>Dates et objet</h3>
+      <div class="row">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Période du voyage</mat-label>
+          <mat-date-range-input [rangePicker]="picker" [min]="enEdition ? null : aujourdhui">
+            <input matStartDate formControlName="dateDebut" placeholder="Départ">
+            <input matEndDate formControlName="dateFin" placeholder="Retour">
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="picker" />
+          <mat-date-range-picker #picker />
+          <mat-hint>JJ/MM/AAAA – JJ/MM/AAAA</mat-hint>
+          <mat-error>Les dates sont obligatoires</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Objet du voyage</mat-label>
+          <mat-select formControlName="objet">
+            @for (o of objets; track o) { <mat-option [value]="o">{{ libellesObjets[o] }}</mat-option> }
+          </mat-select>
+          <mat-error>L'objet est obligatoire</mat-error>
+        </mat-form-field>
+      </div>
+
+      <h3>Partenaires recherchés</h3>
+      <p class="muted small" style="margin-top: -6px">Domaines d'activité des entreprises que vous souhaitez rencontrer
+        (aucun = ouvert aux entreprises de votre domaine).</p>
+      <mat-chip-listbox multiple formControlName="domainesRecherches" class="mb" aria-label="Domaines recherchés">
+        @for (d of domaines; track d) {
+          <mat-chip-option [value]="d">{{ libellesDomaines[d] }}</mat-chip-option>
+        }
+      </mat-chip-listbox>
+
+      <div class="row mb">
+        <button mat-stroked-button type="button" (click)="genererProgramme()" [disabled]="generation()">
+          <mat-icon>auto_awesome</mat-icon>{{ generation() ? 'Génération en cours...' : 'Générer le programme avec l\'IA' }}
+        </button>
+        <span class="muted small">Renseignez d'abord la destination, les dates et l'objet.</span>
+      </div>
+      @if (generation()) { <mat-progress-bar mode="indeterminate" class="mb" /> }
+
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Description / programme</mat-label>
+        <textarea matInput rows="8" formControlName="description" maxlength="2000" placeholder="Rendez-vous prévus, entreprises visitées..."></textarea>
+      </mat-form-field>
+
+      <mat-slide-toggle formControlName="visible">
+        Voyage public (visible dans les programmes et pris en compte par le matching)
+      </mat-slide-toggle>
+
+      <div class="row mt" style="justify-content: flex-end">
+        <a mat-button routerLink="/voyages">Annuler</a>
+        <button mat-flat-button type="submit" [disabled]="loading()">
+          @if (loading()) { <mat-spinner diameter="20" /> } @else { <mat-icon>auto_awesome</mat-icon> }
+          {{ enEdition ? 'Enregistrer et relancer le matching' : 'Enregistrer et trouver des partenaires' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

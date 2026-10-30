@@ -1,0 +1,65 @@
+<div class="auth-page">
+  <section class="hero">
+    <div class="logo"><mat-icon>public</mat-icon> Voyages &amp; Affaires</div>
+    <h1>Votre entreprise vous invite</h1>
+    <p>Créez votre compte employé pour planifier vos voyages d'affaires et rencontrer d'autres professionnels
+      qui partent au même endroit que vous.</p>
+  </section>
+
+  <section class="form-side">
+    <div class="form-box">
+      @if (erreur()) {
+        <div class="empty">
+          <mat-icon>link_off</mat-icon>
+          <h2>Invitation invalide</h2>
+          <p>{{ erreur() }}</p>
+          <a mat-stroked-button routerLink="/login">Retour à la connexion</a>
+        </div>
+      } @else if (invitation()) {
+        @let inv = invitation()!;
+        <h2>Rejoindre {{ inv.entrepriseNom }}</h2>
+        <p class="subtitle">Compte créé pour <strong>{{ inv.email }}</strong></p>
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="row">
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Prénom</mat-label>
+              <input matInput formControlName="prenom">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Nom</mat-label>
+              <input matInput formControlName="nom">
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Poste</mat-label>
+              <input matInput formControlName="poste">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Téléphone</mat-label>
+              <input matInput formControlName="telephone">
+            </mat-form-field>
+          </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Mot de passe</mat-label>
+            <input matInput type="password" formControlName="password">
+            <mat-error>6 caractères minimum</mat-error>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Confirmation</mat-label>
+            <input matInput type="password" formControlName="confirmation">
+          </mat-form-field>
+          @if (form.hasError('differents') && form.controls.confirmation.touched) {
+            <span class="badge red mb">Les mots de passe ne correspondent pas</span>
+          }
+          <button mat-flat-button type="submit" style="height: 48px" [disabled]="loading()">
+            @if (loading()) { <mat-spinner diameter="20" /> } @else { Créer mon compte }
+          </button>
+        </form>
+      } @else {
+        <div class="center"><mat-spinner diameter="40" style="margin: auto" /></div>
+      }
+    </div>
+  </section>
+</div>

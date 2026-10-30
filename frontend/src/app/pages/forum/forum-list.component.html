@@ -1,0 +1,53 @@
+<div class="page" style="max-width: 960px">
+  <div class="page-header">
+    <div>
+      <h1>Forum</h1>
+      <p>Partagez vos retours d'expérience, conseils et opportunités d'affaires.</p>
+    </div>
+    <button mat-flat-button (click)="nouvellePublication()"><mat-icon>edit</mat-icon>Nouvelle publication</button>
+  </div>
+
+  <mat-card class="card card-pad mb" appearance="outlined">
+    <div class="row">
+      <mat-form-field appearance="outline" class="grow" subscriptSizing="dynamic">
+        <mat-label>Rechercher dans le forum</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [formControl]="recherche">
+      </mat-form-field>
+      <mat-button-toggle-group [value]="tri()" (change)="trier($event.value)">
+        <mat-button-toggle value="recent"><mat-icon>schedule</mat-icon> Récents</mat-button-toggle>
+        <mat-button-toggle value="populaire"><mat-icon>trending_up</mat-icon> Populaires</mat-button-toggle>
+        <mat-button-toggle value="commentes"><mat-icon>chat</mat-icon> Commentés</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+    <div class="cats mt">
+      @for (c of categories(); track c) {
+        <button class="badge cat" [class.on]="categorie() === c" (click)="choisirCategorie(c)">{{ c }}</button>
+      }
+    </div>
+  </mat-card>
+
+  @if (loading()) { <mat-progress-bar mode="indeterminate" class="mb" /> }
+
+  <div class="grid">
+    @for (p of posts(); track p.id) {
+      <mat-card class="card post" appearance="outlined">
+        <div class="meta">
+          <span class="badge blue">{{ p.categorie }}</span>
+          <span><strong>{{ p.auteurNom }}</strong> · {{ p.auteurEntreprise }}</span>
+          <span>· {{ p.dateCreation | date: 'dd MMM yyyy à HH:mm' }}</span>
+        </div>
+        <h3><a [routerLink]="['/forum', p.id]">{{ p.titre }}</a></h3>
+        <p class="excerpt">{{ p.contenu }}</p>
+        <div class="foot">
+          <app-reactions [post]="p" (reagir)="reagir(p, $event)" />
+          <a mat-button [routerLink]="['/forum', p.id]"><mat-icon>chat_bubble_outline</mat-icon>{{ p.nbCommentaires }} commentaire(s)</a>
+        </div>
+      </mat-card>
+    } @empty {
+      @if (!loading()) {
+        <div class="empty"><mat-icon>forum</mat-icon><p>Aucune publication. Lancez la discussion !</p></div>
+      }
+    }
+  </div>
+</div>

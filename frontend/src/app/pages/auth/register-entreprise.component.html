@@ -1,0 +1,110 @@
+<div class="auth-page">
+  <section class="hero">
+    <div class="logo"><mat-icon>public</mat-icon> Voyages &amp; Affaires</div>
+    <h1>Inscrivez votre entreprise</h1>
+    <p>En deux étapes, créez le compte de votre entreprise puis invitez vos employés à rejoindre la plateforme.</p>
+    <ul>
+      <li><mat-icon>business</mat-icon> Présentez votre domaine d'activité</li>
+      <li><mat-icon>group_add</mat-icon> Invitez vos employés par email</li>
+      <li><mat-icon>insights</mat-icon> Suivez vos voyages et partenariats</li>
+    </ul>
+  </section>
+
+  <section class="form-side">
+    <div class="form-box wide">
+      <h2>Inscription entreprise</h2>
+      <p class="subtitle">Déjà inscrit ? <a routerLink="/login">Se connecter</a></p>
+
+      <mat-stepper linear #stepper orientation="vertical">
+        <mat-step [stepControl]="entreprise" label="Votre entreprise">
+          <form [formGroup]="entreprise" class="mt">
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Nom de l'entreprise</mat-label>
+              <input matInput formControlName="nomEntreprise">
+              <mat-error>Le nom est obligatoire</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Domaine d'activité</mat-label>
+              <mat-select formControlName="domaineActivite">
+                @for (d of domaines; track d) { <mat-option [value]="d">{{ libellesDomaines[d] }}</mat-option> }
+              </mat-select>
+              <mat-error>Le domaine est obligatoire</mat-error>
+            </mat-form-field>
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Pays</mat-label>
+                <input matInput formControlName="pays">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Ville</mat-label>
+                <input matInput formControlName="ville">
+                <mat-error>La ville est obligatoire</mat-error>
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Adresse</mat-label>
+              <input matInput formControlName="adresse">
+            </mat-form-field>
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Téléphone</mat-label>
+                <input matInput formControlName="telephone">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Site web</mat-label>
+                <input matInput formControlName="siteWeb" placeholder="https://">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Description de l'activité</mat-label>
+              <textarea matInput rows="3" formControlName="description"></textarea>
+            </mat-form-field>
+            <div class="actions">
+              <span></span>
+              <button mat-flat-button matStepperNext type="button">Suivant</button>
+            </div>
+          </form>
+        </mat-step>
+
+        <mat-step [stepControl]="responsable" label="Compte du responsable">
+          <form [formGroup]="responsable" class="mt" (ngSubmit)="submit()">
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Prénom</mat-label>
+                <input matInput formControlName="prenom">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Nom</mat-label>
+                <input matInput formControlName="nom">
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Email professionnel</mat-label>
+              <input matInput type="email" formControlName="email">
+              <mat-error>Email invalide</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Mot de passe</mat-label>
+              <input matInput type="password" formControlName="password">
+              <mat-hint>6 caractères minimum</mat-hint>
+              <mat-error>6 caractères minimum</mat-error>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Confirmation du mot de passe</mat-label>
+              <input matInput type="password" formControlName="confirmation">
+            </mat-form-field>
+            @if (responsable.hasError('differents') && responsable.controls.confirmation.touched) {
+              <span class="badge red mb">Les mots de passe ne correspondent pas</span>
+            }
+            <div class="actions">
+              <button mat-button matStepperPrevious type="button">Retour</button>
+              <button mat-flat-button type="submit" [disabled]="loading()">
+                @if (loading()) { <mat-spinner diameter="20" /> } @else { Créer mon entreprise }
+              </button>
+            </div>
+          </form>
+        </mat-step>
+      </mat-stepper>
+    </div>
+  </section>
+</div>

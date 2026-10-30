@@ -1,0 +1,63 @@
+<div class="auth-page">
+  <section class="hero">
+    <div class="logo"><mat-icon>public</mat-icon> Voyages &amp; Affaires</div>
+    <h1>Ne voyagez plus seul.<br>Développez votre réseau.</h1>
+    <p>Déclarez vos voyages d'affaires : notre algorithme vous met en relation avec les employés d'autres
+      entreprises qui partent au même endroit, aux mêmes dates, et qui cherchent des partenaires comme vous.</p>
+    <ul>
+      <li><mat-icon>auto_awesome</mat-icon> Matching par domaine d'activité, dates et destination</li>
+      <li><mat-icon>handshake</mat-icon> Invitations de voyage et mise en contact sécurisée</li>
+      <li><mat-icon>forum</mat-icon> Forum d'échanges entre voyageurs d'affaires</li>
+    </ul>
+  </section>
+
+  <section class="form-side">
+    <div class="form-box">
+      <h2>Connexion</h2>
+      <p class="subtitle">Accédez à votre espace entreprise ou employé.</p>
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="email">
+          <mat-icon matPrefix>mail</mat-icon>
+          @if (form.controls.email.hasError('email')) { <mat-error>Email invalide</mat-error> }
+          @if (form.controls.email.hasError('required')) { <mat-error>L'email est obligatoire</mat-error> }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Mot de passe</mat-label>
+          <input matInput [type]="masquer() ? 'password' : 'text'" formControlName="password" autocomplete="current-password">
+          <mat-icon matPrefix>lock</mat-icon>
+          <button mat-icon-button matSuffix type="button" (click)="masquer.set(!masquer())">
+            <mat-icon>{{ masquer() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          @if (form.controls.password.hasError('required')) { <mat-error>Le mot de passe est obligatoire</mat-error> }
+        </mat-form-field>
+
+        @if (erreur()) {
+          <div class="badge red" style="padding: 8px 12px; border-radius: 8px; white-space: normal">{{ erreur() }}</div>
+        }
+
+        <button mat-flat-button type="submit" class="full" style="height: 48px; margin-top: 8px" [disabled]="loading()">
+          @if (loading()) { <mat-spinner diameter="20" /> } @else { Se connecter }
+        </button>
+      </form>
+
+      <p class="switch">
+        Votre entreprise n'est pas encore inscrite ?
+        <a routerLink="/inscription">Inscrire mon entreprise</a>
+      </p>
+      <p class="muted small center">Employé ? Utilisez le lien d'invitation envoyé par votre entreprise.</p>
+
+      <div class="demo">
+        <div class="demo-title"><mat-icon inline>science</mat-icon> Comptes de démonstration</div>
+        <div class="accounts">
+          @for (d of demo; track d.email) {
+            <button mat-stroked-button type="button" (click)="remplir(d.email, d.password)">{{ d.label }}</button>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

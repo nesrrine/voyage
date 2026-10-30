@@ -1,0 +1,53 @@
+<mat-sidenav-container class="container">
+  <mat-sidenav #drawer [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="sidenav">
+    <div class="brand">
+      <mat-icon>public</mat-icon>
+      <div>
+        <strong>Voyages &amp; Affaires</strong>
+        <span>Réseau des voyageurs d'affaires</span>
+      </div>
+    </div>
+
+    <mat-nav-list>
+      @for (item of menu(); track item.route) {
+        <a mat-list-item [routerLink]="item.route" routerLinkActive="active"
+           (click)="isMobile() && drawer.close()">
+          <mat-icon matListItemIcon
+                    [matBadge]="invitationsEnAttente()"
+                    [matBadgeHidden]="item.route !== '/invitations-voyage' || !invitationsEnAttente()"
+                    matBadgeColor="warn" matBadgeSize="small">{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="toolbar">
+      @if (isMobile()) {
+        <button mat-icon-button (click)="drawer.toggle()" aria-label="Menu"><mat-icon>menu</mat-icon></button>
+      }
+      <span class="spacer"></span>
+      @if (auth.user(); as u) {
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn">
+          <span class="avatar">{{ initiales() }}</span>
+          <span class="user-info">
+            <span class="name">{{ u.prenom }} {{ u.nom }}</span>
+            <span class="role">{{ roles[u.role] }}{{ u.entrepriseNom ? ' · ' + u.entrepriseNom : '' }}</span>
+          </span>
+          <mat-icon>expand_more</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu" xPosition="before">
+          <a mat-menu-item routerLink="/compte"><mat-icon>person</mat-icon>Mon compte</a>
+          <mat-divider />
+          <button mat-menu-item (click)="auth.logout()"><mat-icon>logout</mat-icon>Déconnexion</button>
+        </mat-menu>
+      }
+    </mat-toolbar>
+
+    <main>
+      <router-outlet />
+    </main>
+    <app-assistant />
+  </mat-sidenav-content>
+</mat-sidenav-container>

@@ -1,0 +1,86 @@
+<div class="page" style="max-width: 900px">
+  <div class="page-header">
+    <div>
+      <h1>Mon compte</h1>
+      @if (auth.user(); as u) {
+        <p>{{ u.email }} · <span class="badge blue">{{ roles[u.role] }}</span>
+          @if (u.entrepriseNom) { · {{ u.entrepriseNom }} }</p>
+      }
+    </div>
+  </div>
+
+  <mat-card class="card" appearance="outlined">
+    <mat-tab-group animationDuration="150ms">
+      <mat-tab label="Profil">
+        <form [formGroup]="profil" (ngSubmit)="enregistrerProfil()" class="card-pad">
+          <div class="row">
+            <mat-form-field appearance="outline" class="grow"><mat-label>Prénom</mat-label><input matInput formControlName="prenom"></mat-form-field>
+            <mat-form-field appearance="outline" class="grow"><mat-label>Nom</mat-label><input matInput formControlName="nom"></mat-form-field>
+          </div>
+          <div class="row">
+            <mat-form-field appearance="outline" class="grow"><mat-label>Téléphone</mat-label><input matInput formControlName="telephone"></mat-form-field>
+            <mat-form-field appearance="outline" class="grow"><mat-label>Poste</mat-label><input matInput formControlName="poste"></mat-form-field>
+          </div>
+          <button mat-flat-button type="submit" [disabled]="profil.invalid"><mat-icon>save</mat-icon>Enregistrer</button>
+        </form>
+      </mat-tab>
+
+      <mat-tab label="Sécurité">
+        <form [formGroup]="motDePasse" (ngSubmit)="changerMotDePasse()" class="card-pad" style="max-width: 420px">
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Mot de passe actuel</mat-label>
+            <input matInput type="password" formControlName="ancien">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Nouveau mot de passe</mat-label>
+            <input matInput type="password" formControlName="nouveau">
+            <mat-error>6 caractères minimum</mat-error>
+          </mat-form-field>
+          <button mat-flat-button type="submit"><mat-icon>lock_reset</mat-icon>Changer le mot de passe</button>
+        </form>
+      </mat-tab>
+
+      @if (entreprise()) {
+        <mat-tab label="Entreprise">
+          <form [formGroup]="entrepriseForm" (ngSubmit)="enregistrerEntreprise()" class="card-pad">
+            @if (!auth.hasRole('ENTREPRISE')) {
+              <p class="muted small">Ces informations sont gérées par le compte de votre entreprise.</p>
+            }
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow"><mat-label>Nom</mat-label><input matInput formControlName="nom"></mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Domaine d'activité</mat-label>
+                <mat-select formControlName="domaineActivite">
+                  @for (d of domaines; track d) { <mat-option [value]="d">{{ libellesDomaines[d] }}</mat-option> }
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow"><mat-label>Pays</mat-label><input matInput formControlName="pays"></mat-form-field>
+              <mat-form-field appearance="outline" class="grow"><mat-label>Ville</mat-label><input matInput formControlName="ville"></mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full"><mat-label>Adresse</mat-label><input matInput formControlName="adresse"></mat-form-field>
+            <div class="row">
+              <mat-form-field appearance="outline" class="grow"><mat-label>Téléphone</mat-label><input matInput formControlName="telephone"></mat-form-field>
+              <mat-form-field appearance="outline" class="grow"><mat-label>Site web</mat-label><input matInput formControlName="siteWeb"></mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full"><mat-label>Description</mat-label><textarea matInput rows="3" formControlName="description"></textarea></mat-form-field>
+            <p class="muted small">{{ entreprise()?.nbEmployes }} employé(s) inscrit(s)</p>
+            @if (auth.hasRole('ENTREPRISE')) {
+              <button mat-flat-button type="submit"><mat-icon>save</mat-icon>Enregistrer</button>
+            }
+          </form>
+        </mat-tab>
+      }
+
+      @if (!auth.hasRole('ADMIN')) {
+        <mat-tab label="Désactivation">
+          <div class="card-pad">
+            <p>La désactivation bloque l'accès à votre compte. Vos voyages ne seront plus proposés aux autres utilisateurs.</p>
+            <button mat-stroked-button color="warn" (click)="desactiver()"><mat-icon>person_off</mat-icon>Désactiver mon compte</button>
+          </div>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </mat-card>
+</div>

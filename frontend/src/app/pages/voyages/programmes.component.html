@@ -1,0 +1,74 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Programmes de voyages</h1>
+      <p>Découvrez où partent les professionnels des autres entreprises dans les prochaines semaines.</p>
+    </div>
+  </div>
+
+  <mat-card class="card mb" appearance="outlined">
+    <form [formGroup]="filtres" class="row filters">
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Destination</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput formControlName="destination" placeholder="Ville ou pays">
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Objet</mat-label>
+        <mat-select formControlName="objet">
+          <mat-option [value]="null">Tous</mat-option>
+          @for (o of objets; track o) { <mat-option [value]="o">{{ libellesObjets[o] }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Domaine de l'entreprise</mat-label>
+        <mat-select formControlName="domaine">
+          <mat-option [value]="null">Tous</mat-option>
+          @for (d of domaines; track d) { <mat-option [value]="d">{{ libellesDomaines[d] }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Période</mat-label>
+        <mat-date-range-input [rangePicker]="picker">
+          <input matStartDate formControlName="du" placeholder="Du">
+          <input matEndDate formControlName="au" placeholder="Au">
+        </mat-date-range-input>
+        <mat-datepicker-toggle matIconSuffix [for]="picker" />
+        <mat-date-range-picker #picker />
+      </mat-form-field>
+      <button mat-button type="button" (click)="reinitialiser()" style="margin-bottom: 20px"><mat-icon>filter_alt_off</mat-icon>Réinitialiser</button>
+    </form>
+  </mat-card>
+
+  @if (loading()) { <mat-progress-bar mode="indeterminate" class="mb" /> }
+
+  <div class="row mb">
+    <strong>{{ voyages().length }} voyage(s)</strong>
+    @if (topDestinations().length) {
+      <span class="muted">· Destinations populaires :</span>
+      @for (d of topDestinations(); track d[0]) { <span class="badge blue">{{ d[0] }} ({{ d[1] }})</span> }
+    }
+  </div>
+
+  <div class="grid grid-3">
+    @for (v of voyages(); track v.id) {
+      <mat-card class="card trip" [class.mine]="estMonEntreprise(v)" appearance="outlined">
+        <div class="dest"><mat-icon>place</mat-icon>{{ v.villeDestination }}
+          <span class="muted small" style="font-weight: 400">{{ v.paysDestination }}</span></div>
+        <strong>{{ v.titre }}</strong>
+        <div class="line"><mat-icon>event</mat-icon>{{ v.dateDebut | date: 'dd MMM' }} → {{ v.dateFin | date: 'dd MMM yyyy' }} · {{ v.dureeJours }} j</div>
+        <div class="line"><mat-icon>business</mat-icon>{{ v.entrepriseNom }} <span class="muted">({{ v.entrepriseDomaine | libelle }})</span></div>
+        <div class="line"><mat-icon>person</mat-icon>{{ v.employePoste || 'Employé' }}</div>
+        <div class="foot">
+          <span class="badge blue">{{ v.objet | libelle }}</span>
+          <span class="badge {{ statuts[v.statutTemporel].color }}">{{ statuts[v.statutTemporel].label }}</span>
+          @if (estMonEntreprise(v)) { <span class="badge orange">Mon entreprise</span> }
+        </div>
+      </mat-card>
+    } @empty {
+      @if (!loading()) {
+        <div class="empty"><mat-icon>travel_explore</mat-icon><p>Aucun voyage ne correspond à ces critères.</p></div>
+      }
+    }
+  </div>
+</div>

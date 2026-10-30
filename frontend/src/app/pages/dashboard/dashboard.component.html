@@ -1,0 +1,98 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Bonjour {{ auth.user()?.prenom }} 👋</h1>
+      <p>Voici l'activité de {{ auth.hasRole('ADMIN') ? 'la plateforme' : auth.hasRole('ENTREPRISE') ? 'votre entreprise' : 'vos voyages' }}.</p>
+    </div>
+    @if (auth.hasRole('EMPLOYE', 'ENTREPRISE')) {
+      <a mat-flat-button routerLink="/voyages/nouveau"><mat-icon>add</mat-icon>Nouveau voyage</a>
+    }
+  </div>
+
+  @if (dashboard(); as d) {
+    <div class="grid grid-cards mb">
+      @for (c of d.cartes; track c.label) {
+        <mat-card class="card stat" appearance="outlined">
+          <div class="ico"><mat-icon>{{ c.icone }}</mat-icon></div>
+          <div>
+            <div class="val">{{ c.valeur }}</div>
+            <div class="lbl">{{ c.label }}</div>
+          </div>
+        </mat-card>
+      }
+    </div>
+
+    @if (!auth.hasRole('ADMIN')) {
+      <div class="grid grid-2 mb">
+        <mat-card class="card card-pad" appearance="outlined">
+          <div class="row"><h3>Prochains voyages</h3><span class="spacer"></span><a mat-button routerLink="/voyages">Tout voir</a></div>
+          @for (v of prochainsVoyages(); track v.id) {
+            <div class="list-item">
+              <mat-icon color="primary">flight_takeoff</mat-icon>
+              <div class="grow">
+                <a [routerLink]="['/voyages', v.id]"><strong>{{ v.titre }}</strong></a>
+                <div class="muted small">{{ v.villeDestination }} · {{ v.dateDebut | date: 'dd MMM' }} → {{ v.dateFin | date: 'dd MMM yyyy' }}
+                  @if (auth.hasRole('ENTREPRISE')) { · {{ v.employeNom }} }</div>
+              </div>
+              <span class="badge blue">{{ v.objet | libelle }}</span>
+            </div>
+          } @empty {
+            <p class="muted">Aucun voyage planifié.</p>
+          }
+        </mat-card>
+
+        @if (auth.hasRole('EMPLOYE')) {
+          <mat-card class="card card-pad" appearance="outlined">
+            <div class="row"><h3>Invitations à traiter</h3><span class="spacer"></span><a mat-button routerLink="/invitations-voyage">Tout voir</a></div>
+            @for (m of invitations(); track m.id) {
+              <div class="list-item">
+                <mat-icon style="color: var(--va-accent)">handshake</mat-icon>
+                <div class="grow">
+                  <strong>{{ m.partenaireNom }}</strong> <span class="muted">({{ m.partenaireEntreprise }})</span>
+                  <div class="muted small">{{ m.voyagePartenaire.villeDestination }} · score {{ m.score | number: '1.0-0' }}%</div>
+                </div>
+              </div>
+            } @empty {
+              <p class="muted">Aucune invitation en attente.</p>
+            }
+          </mat-card>
+        } @else {
+          <mat-card class="card card-pad" appearance="outlined">
+            <h3>Actions rapides</h3>
+            <div class="row mt">
+              <a mat-stroked-button routerLink="/employes"><mat-icon>person_add</mat-icon>Inviter un employé</a>
+              <a mat-stroked-button routerLink="/programmes"><mat-icon>travel_explore</mat-icon>Programmes</a>
+              <a mat-stroked-button routerLink="/forum"><mat-icon>forum</mat-icon>Forum</a>
+            </div>
+          </mat-card>
+        }
+      </div>
+    }
+
+    <mat-card class="card card-pad mb reco" appearance="outlined">
+      <div class="row">
+        <mat-icon class="reco-ico">auto_awesome</mat-icon>
+        <div class="grow">
+          <h3 style="margin: 0">Recommandations de l'IA</h3>
+          <span class="muted small">Analyse de vos voyages et des programmes de la plateforme pour vous conseiller.</span>
+        </div>
+        <button mat-flat-button (click)="genererRecommandations()" [disabled]="recoEnCours()">
+          <mat-icon>{{ recommandations() ? 'refresh' : 'auto_awesome' }}</mat-icon>
+          {{ recoEnCours() ? 'Analyse en cours...' : recommandations() ? 'Actualiser' : 'Générer' }}
+        </button>
+      </div>
+      @if (recoEnCours()) { <mat-progress-bar mode="indeterminate" class="mt" /> }
+      @if (recommandations(); as r) { <p class="reco-texte">{{ r }}</p> }
+    </mat-card>
+
+    <div class="grid grid-2">
+      @for (g of graphiques; track g.cle) {
+        @if (d.graphiques[g.cle]; as serie) {
+          <app-chart-card [titre]="g.titre" [serie]="serie" [type]="g.type" [horizontal]="g.horizontal ?? false" />
+        }
+      }
+    </div>
+  } @else {
+    <mat-progress-bar mode="indeterminate" />
+  }
+</div>

@@ -1,0 +1,76 @@
+<div class="page">
+  @if (voyage(); as v) {
+    <div class="page-header">
+      <div>
+        <h1>{{ v.titre }}</h1>
+        <p>{{ v.employeNom }} · {{ v.entrepriseNom }}</p>
+      </div>
+      <div class="row">
+        <a mat-button routerLink="/voyages"><mat-icon>arrow_back</mat-icon>Retour</a>
+        @if (gerable() && !auth.hasRole('ADMIN')) {
+          <a mat-stroked-button [routerLink]="['/voyages', v.id, 'modifier']"><mat-icon>edit</mat-icon>Modifier</a>
+        }
+        @if (gerable()) {
+          <button mat-stroked-button color="warn" (click)="supprimer()"><mat-icon>delete</mat-icon>Supprimer</button>
+        }
+      </div>
+    </div>
+
+    <mat-card class="card card-pad mb" appearance="outlined">
+      <div class="row">
+        <span class="badge {{ statuts[v.statutTemporel].color }}">{{ statuts[v.statutTemporel].label }}</span>
+        <span class="badge blue">{{ v.objet | libelle }}</span>
+        <span class="badge {{ v.visible ? 'green' : 'grey' }}">{{ v.visible ? 'Public' : 'Privé' }}</span>
+      </div>
+      <div class="info">
+        <div><mat-icon>place</mat-icon><span><small>Destination</small>{{ v.villeDestination }}, {{ v.paysDestination }}</span></div>
+        <div><mat-icon>radar</mat-icon><span><small>Périmètre</small>{{ v.rayonKm }} km</span></div>
+        <div><mat-icon>event</mat-icon><span><small>Dates</small>{{ v.dateDebut | date: 'dd MMM' }} → {{ v.dateFin | date: 'dd MMM yyyy' }} ({{ v.dureeJours }} j)</span></div>
+        <div><mat-icon>business</mat-icon><span><small>Entreprise</small>{{ v.entrepriseNom }} · {{ v.entrepriseDomaine | libelle }}</span></div>
+      </div>
+      @if (v.domainesRecherches.length) {
+        <p class="muted small mt">Partenaires recherchés :</p>
+        <div class="chips">
+          @for (d of v.domainesRecherches; track d) { <span class="badge purple">{{ d | libelle }}</span> }
+        </div>
+      }
+      @if (v.description) { <p class="mt" style="white-space: pre-line">{{ v.description }}</p> }
+    </mat-card>
+
+    @if (gerable()) {
+      <div class="page-header">
+        <div>
+          <h1 style="font-size: 20px">Partenaires de voyage trouvés</h1>
+          <p>Résultats de l'algorithme de matching, triés par score de compatibilité.</p>
+        </div>
+        @if (!auth.hasRole('ADMIN')) {
+          <button mat-flat-button (click)="relancer()" [disabled]="recherche()">
+            <mat-icon>auto_awesome</mat-icon>Relancer la recherche
+          </button>
+        }
+      </div>
+      @if (recherche()) { <mat-progress-bar mode="indeterminate" class="mb" /> }
+
+      @if (matchs(); as liste) {
+        <div class="grid grid-2">
+          @for (m of liste; track m.id) {
+            <app-match-card [match]="m" [afficherMonVoyage]="false" [peutRepondre]="estProprietaire()"
+                            (repondre)="repondre(m, $event)" />
+          } @empty {
+            <mat-card class="card" appearance="outlined">
+              <div class="empty">
+                <mat-icon>person_search</mat-icon>
+                <p>Aucun partenaire compatible pour l'instant.<br>
+                  Dès qu'un employé d'une autre entreprise planifiera un voyage similaire, une invitation sera envoyée.</p>
+              </div>
+            </mat-card>
+          }
+        </div>
+      } @else {
+        <mat-progress-bar mode="indeterminate" />
+      }
+    }
+  } @else {
+    <mat-progress-bar mode="indeterminate" />
+  }
+</div>
