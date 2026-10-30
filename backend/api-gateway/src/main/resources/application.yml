@@ -46,3 +46,8 @@ eureka:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
   instance:
     prefer-ip-address: true
+
+app:
+  jwt:
+    # Meme cle que les microservices : la gateway verifie la signature des jetons
+    secret: ${JWT_SECRET:dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
