@@ -51,3 +51,21 @@ app:
   jwt:
     # Meme cle que les microservices : la gateway verifie la signature des jetons
     secret: ${JWT_SECRET:dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
+
+# ---------- Supervision (Actuator / Prometheus) ----------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      # /actuator/health/liveness et /readiness pour les sondes Kubernetes
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true

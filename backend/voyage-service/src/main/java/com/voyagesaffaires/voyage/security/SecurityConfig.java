@@ -19,7 +19,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         return SecurityUtils.configurationDeBase(http, jwtFilter)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/h2-console/**", "/error").permitAll()
+                        .requestMatchers("/h2-console/**", "/error",
+                                "/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/meta/**").permitAll()
                         .requestMatchers("/api/matchs/**").hasAnyRole("EMPLOYE", "ENTREPRISE")
                         .anyRequest().authenticated())

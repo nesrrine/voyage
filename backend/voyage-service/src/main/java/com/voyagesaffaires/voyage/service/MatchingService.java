@@ -5,6 +5,8 @@ import com.voyagesaffaires.voyage.entity.MatchVoyage;
 import com.voyagesaffaires.voyage.entity.Voyage;
 import com.voyagesaffaires.voyage.repository.MatchVoyageRepository;
 import com.voyagesaffaires.voyage.repository.VoyageRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,8 @@ public class MatchingService {
 
     private final VoyageRepository voyageRepository;
     private final MatchVoyageRepository matchRepository;
+    /** Metriques metier exposees a Prometheus (dashboard Grafana). */
+    private final MeterRegistry meterRegistry;
 
     @Value("${app.matching.seuil:40}")
     private double seuil;
@@ -57,6 +61,7 @@ public class MatchingService {
         if (!voyage.isVisible() || !voyage.isEmployeActif() || voyage.getDateFin().isBefore(LocalDate.now())) {
             return 0;
         }
+        Timer.Sample chrono = Timer.start(meterRegistry);
         int crees = 0;
         for (Voyage candidat : voyageRepository.findCandidats(voyage.getId(), voyage.getEntrepriseId(),
                 voyage.getDateDebut(), voyage.getDateFin())) {
@@ -66,9 +71,12 @@ public class MatchingService {
             Optional<MatchVoyage> match = evaluer(voyage, candidat);
             if (match.isPresent() && match.get().getScore() >= seuil) {
                 matchRepository.save(match.get());
+                meterRegistry.summary("va.matching.score").record(match.get().getScore());
                 crees++;
             }
         }
+        meterRegistry.counter("va.matching.invitations").increment(crees);
+        chrono.stop(meterRegistry.timer("va.matching.duree"));
         return crees;
     }
 

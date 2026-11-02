@@ -3,6 +3,7 @@ package com.voyagesaffaires.voyage.service;
 import com.voyagesaffaires.common.enums.DomaineActivite;
 import com.voyagesaffaires.common.enums.ObjetVoyage;
 import com.voyagesaffaires.voyage.entity.Voyage;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -13,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MatchingServiceTest {
 
-    private final MatchingService service = new MatchingService(null, null);
+    private final MatchingService service = new MatchingService(null, null, new SimpleMeterRegistry());
     private final LocalDate t = LocalDate.of(2026, 6, 1);
 
     private Voyage voyage(DomaineActivite domaineEntreprise, Set<DomaineActivite> recherches,
