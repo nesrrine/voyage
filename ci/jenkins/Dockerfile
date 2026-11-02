@@ -1,6 +1,7 @@
 # Jenkins pret pour les pipelines du projet : plugins installes + client Docker
 # (les etapes Maven, Node, sonar-scanner et kubectl tournent dans des conteneurs Docker).
-FROM jenkins/jenkins:2.479.1-lts-jdk17
+# Derniere version LTS : les plugins installes en derniere version exigent un Jenkins recent
+FROM jenkins/jenkins:lts-jdk17
 
 USER root
 # Client Docker : Jenkins utilise le Docker de la machine (socket monte par docker-compose)
