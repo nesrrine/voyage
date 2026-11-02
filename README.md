@@ -11,7 +11,7 @@ vers les mêmes destinations, aux mêmes dates, et dont les domaines d'activité
 - **IA** : API Claude d'Anthropic (SDK Java officiel)
 
 > **Sprint 3 (DevOps)** : pipelines Jenkins, images Docker, déploiement Kubernetes (kubeadm), SonarQube,
-> Prometheus / Grafana et alertes — voir **[DEVOPS.md](DEVOPS.md)**. Stack complète en local : `docker compose up -d --build`.
+> Prometheus / Grafana et alertes — voir **[DEVOPS.md](DEVOPS.md)**. Guide pas à pas pour tout ouvrir et tester : **[TESTER.md](TESTER.md)**. Stack complète en local : `docker compose up -d --build`.
 
 ## Architecture
 
