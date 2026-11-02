@@ -20,6 +20,11 @@ describe('NotifyService.message', () => {
     expect(NotifyService.message(err)).toBe('Acces refuse : droits insuffisants');
   });
 
+  it('explique qu\'un service est en cours de demarrage (503 de la gateway sans message)', () => {
+    const err = new HttpErrorResponse({ status: 503, error: '<html>Service Unavailable</html>' });
+    expect(NotifyService.message(err, 'Connexion impossible')).toContain('démarre encore');
+  });
+
   it('utilise le message par defaut pour une erreur inconnue', () => {
     expect(NotifyService.message(new Error('x'), 'Echec')).toBe('Echec');
   });

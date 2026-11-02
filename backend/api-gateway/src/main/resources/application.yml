@@ -5,6 +5,10 @@ spring:
   application:
     name: api-gateway
   cloud:
+    # Cache du load balancer aligne sur le rafraichissement Eureka
+    loadbalancer:
+      cache:
+        ttl: 5s
     gateway:
       # CORS gere ici, une seule fois, pour tous les services
       globalcors:
@@ -44,6 +48,9 @@ eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    # Recupere la liste des services toutes les 5 s (30 s par defaut) : un service qui vient
+    # de demarrer est joignable plus vite via la gateway
+    registry-fetch-interval-seconds: 5
   instance:
     prefer-ip-address: true
 

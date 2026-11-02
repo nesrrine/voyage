@@ -27,6 +27,10 @@ export class NotifyService {
       if (body?.message) {
         return body.message;
       }
+      // Gateway ou microservice pas encore pret (demarrage des conteneurs, inscription dans Eureka)
+      if (err.status === 502 || err.status === 503 || err.status === 504) {
+        return 'Le serveur démarre encore : réessayez dans une minute';
+      }
     }
     return fallback;
   }
