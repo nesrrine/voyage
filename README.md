@@ -10,6 +10,9 @@ vers les mêmes destinations, aux mêmes dates, et dont les domaines d'activité
 - **Frontend** : Angular 19 (composants standalone, signals), Angular Material, Chart.js (ng2-charts)
 - **IA** : API Claude d'Anthropic (SDK Java officiel)
 
+> **Sprint 3 (DevOps)** : pipelines Jenkins, images Docker, déploiement Kubernetes (kubeadm), SonarQube,
+> Prometheus / Grafana et alertes — voir **[DEVOPS.md](DEVOPS.md)**. Stack complète en local : `docker compose up -d --build`.
+
 ## Architecture
 
 ```
@@ -165,7 +168,7 @@ npm install
 npm start
 ```
 
-Puis ouvrir http://localhost:4200. Le frontend n'appelle que la gateway (`http://localhost:8080/api`).
+Puis ouvrir http://localhost:4200. Le frontend appelle `/api`, redirigé vers la gateway (`http://localhost:8080`) par le proxy de `ng serve` (`proxy.conf.json`) ; en Docker et Kubernetes, c'est nginx qui fait ce relais.
 
 > Angular 19 supporte officiellement Node 18 / 20 / 22. Avec Node 24, le cache de build plantait :
 > il est désactivé dans `angular.json` (`"cli": { "cache": { "enabled": false } }`), ce qui suffit.
