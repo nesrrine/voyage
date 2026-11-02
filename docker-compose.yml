@@ -6,9 +6,12 @@
 #
 # Application : http://localhost:4200   Eureka : http://localhost:8761
 # Prometheus  : http://localhost:9090   Grafana : http://localhost:3000 (admin / admin)
+#
+# Memoire bornee par conteneur (mem_limit) : la stack tient dans ~3 Go, la JVM utilise 75 % de sa limite.
 
 x-microservice: &microservice
   restart: unless-stopped
+  mem_limit: 448m
   environment: &env-commun
     EUREKA_URL: http://discovery-server:8761/eureka
     JWT_SECRET: ${JWT_SECRET:-dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
@@ -25,6 +28,7 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-voyages}
     volumes:
@@ -38,6 +42,7 @@ services:
   # ---------- Microservices ----------
   discovery-server:
     build: ./backend/discovery-server
+    mem_limit: 384m
     image: ${REGISTRY:-nesrrine}/va-discovery-server:${TAG:-latest}
     restart: unless-stopped
     ports:
@@ -76,6 +81,7 @@ services:
 
   ai-service:
     build: ./backend/ai-service
+    mem_limit: 384m
     image: ${REGISTRY:-nesrrine}/va-ai-service:${TAG:-latest}
     restart: unless-stopped
     environment:
@@ -88,6 +94,7 @@ services:
 
   api-gateway:
     build: ./backend/api-gateway
+    mem_limit: 448m
     image: ${REGISTRY:-nesrrine}/va-api-gateway:${TAG:-latest}
     restart: unless-stopped
     environment:
@@ -100,6 +107,7 @@ services:
   # ---------- Frontend Angular servi par nginx (redirige /api vers la gateway) ----------
   frontend:
     build: ./frontend
+    mem_limit: 64m
     image: ${REGISTRY:-nesrrine}/va-frontend:${TAG:-latest}
     restart: unless-stopped
     ports:
@@ -111,6 +119,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
+    mem_limit: 256m
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=7d
@@ -123,6 +132,7 @@ services:
   grafana:
     image: grafana/grafana:11.2.0
     restart: unless-stopped
+    mem_limit: 192m
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
