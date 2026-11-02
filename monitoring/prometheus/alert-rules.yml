@@ -1,0 +1,53 @@
+# Regles d'alerte Prometheus (visibles dans Prometheus > Alerts et dans le dashboard Grafana).
+groups:
+  - name: voyages-affaires
+    rules:
+      - alert: MicroserviceIndisponible
+        expr: up{job=~"microservices|kubernetes-pods"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.application }} ne repond plus"
+          description: "Prometheus n'arrive plus a lire les metriques de {{ $labels.application }} ({{ $labels.instance }}) depuis 1 minute."
+
+      - alert: TauxErreurs5xxEleve
+        expr: |
+          sum by (application) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            / sum by (application) (rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Plus de 5 % d'erreurs serveur sur {{ $labels.application }}"
+          description: "Taux d'erreurs 5xx : {{ $value | humanizePercentage }} sur les 5 dernieres minutes."
+
+      - alert: LatenceElevee
+        expr: |
+          histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket{uri!~"/api/ai.*"}[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Temps de reponse eleve sur {{ $labels.application }}"
+          description: "95 % des requetes repondent en plus de {{ $value | humanizeDuration }} (hors appels IA)."
+
+      - alert: MemoireJvmSaturee
+        expr: |
+          sum by (application) (jvm_memory_used_bytes{area="heap"})
+            / sum by (application) (jvm_memory_max_bytes{area="heap"} > 0) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memoire JVM presque pleine sur {{ $labels.application }}"
+          description: "Le tas Java est utilise a {{ $value | humanizePercentage }}."
+
+      - alert: CircuitBreakerOuvert
+        expr: max by (application, name) (resilience4j_circuitbreaker_state{state="open"}) == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit ouvert vers un service ({{ $labels.application }})"
+          description: "Le circuit breaker {{ $labels.name }} est ouvert : le service appele est en panne, les reponses de repli sont utilisees."

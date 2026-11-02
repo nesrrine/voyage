@@ -1,0 +1,28 @@
+# Prometheus pour Docker Compose : cibles statiques (noms des services compose).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: microservices
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["discovery-server:8761"]
+        labels: { application: discovery-server }
+      - targets: ["api-gateway:8080"]
+        labels: { application: api-gateway }
+      - targets: ["user-service:8081"]
+        labels: { application: user-service }
+      - targets: ["voyage-service:8082"]
+        labels: { application: voyage-service }
+      - targets: ["forum-service:8083"]
+        labels: { application: forum-service }
+      - targets: ["ai-service:8084"]
+        labels: { application: ai-service }
