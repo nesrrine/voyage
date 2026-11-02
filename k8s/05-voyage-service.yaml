@@ -1,0 +1,85 @@
+# Genere par generer_manifests.py - ne pas modifier a la main
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voyage-service
+  namespace: voyages-affaires
+  labels:
+    app: voyage-service
+    app.kubernetes.io/part-of: voyages-affaires
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0      # mise a jour sans interruption
+  selector:
+    matchLabels:
+      app: voyage-service
+  template:
+    metadata:
+      labels:
+        app: voyage-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8082"
+    spec:
+      # Attend que MySQL accepte les connexions avant de demarrer Spring Boot
+      initContainers:
+        - name: attente-mysql
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z mysql 3306; do echo 'attente de mysql'; sleep 3; done"]
+      containers:
+        - name: voyage-service
+          image: __REGISTRY__/va-voyage-service:__TAG__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: va-config
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: va-secrets, key: JWT_SECRET }
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql:3306/va_voyages?createDatabaseIfNotExist=true&serverTimezone=UTC
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: va-secrets, key: MYSQL_ROOT_PASSWORD }
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          # Demarrage de la JVM : jusqu'a 3 minutes avant que les autres sondes prennent le relais
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: voyage-service
+  namespace: voyages-affaires
+  labels:
+    app: voyage-service
+spec:
+  type: ClusterIP
+  selector:
+    app: voyage-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http

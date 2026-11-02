@@ -1,0 +1,83 @@
+# MySQL : une instance, une base par microservice (creees automatiquement par les services).
+# Un cluster kubeadm n'a pas de StorageClass par defaut : volume local (hostPath) sur le noeud.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: va-mysql-pv
+  labels:
+    app: mysql
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: va-local
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/voyages-affaires/mysql
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: va-mysql-pvc
+  namespace: voyages-affaires
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: va-local
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: voyages-affaires
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: va-secrets, key: MYSQL_ROOT_PASSWORD }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          resources:
+            requests: { cpu: 100m, memory: 384Mi }
+            limits: { cpu: "1", memory: 768Mi }
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: va-mysql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: voyages-affaires
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306

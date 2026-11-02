@@ -1,0 +1,26 @@
+# Configuration commune des microservices.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: va-config
+  namespace: voyages-affaires
+data:
+  EUREKA_URL: http://discovery-server:8761/eureka
+  SPRING_DATASOURCE_USERNAME: root
+  # URL publique du frontend (liens d'invitation des employes) : adapter a l'IP d'un noeud du cluster
+  APP_FRONTEND_URL: http://localhost:30080
+  # La JVM respecte les limites memoire du conteneur
+  JAVA_OPTS: -XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError
+---
+# Secrets : valeurs par defaut pour la demonstration, a remplacer en production
+#   kubectl -n voyages-affaires create secret generic va-secrets --from-literal=... --dry-run=client -o yaml | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: va-secrets
+  namespace: voyages-affaires
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: voyages
+  JWT_SECRET: dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n
+  ANTHROPIC_API_KEY: ""
