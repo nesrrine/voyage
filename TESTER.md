@@ -123,10 +123,10 @@ Arrêtez d'abord l'application (`docker compose down`) : SonarQube a besoin d'en
    ```
 2. Ouvrir **http://localhost:9000** (attendre 2 minutes) → `admin` / `admin`, puis choisir un nouveau mot de passe.
 3. *My Account → Security → Generate Token* (type *Global Analysis Token*) et copier le jeton.
-4. Analyse du **backend** (remplacez `VOTRE_JETON`) :
+4. Analyse du **backend** (remplacez `VOTRE_JETON` ; sous PowerShell, les guillemets autour de chaque `-D...` sont obligatoires) :
    ```
    cd backend
-   C:\maven-mvnd-1.0.3-windows-amd64\bin\mvnd.cmd verify org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.token=VOTRE_JETON -Dsonar.projectKey=voyages-affaires-backend
+   C:\maven-mvnd-1.0.3-windows-amd64\bin\mvnd.cmd verify org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar "-Dsonar.host.url=http://localhost:9000" "-Dsonar.token=VOTRE_JETON" "-Dsonar.projectKey=voyages-affaires-backend"
    cd ..
    ```
 5. Analyse du **frontend** (après `npm run test:ci`, qui produit la couverture) :
