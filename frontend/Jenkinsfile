@@ -1,0 +1,138 @@
+// Pipeline CI/CD du frontend (Angular).
+// Job Jenkins "voyages-frontend" : Pipeline script from SCM, Script Path = frontend/Jenkinsfile
+// Declenche a chaque push sur GitHub (webhook -> http://<jenkins>/github-webhook/).
+pipeline {
+    agent any
+
+    triggers {
+        githubPush()
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+        timeout(time: 40, unit: 'MINUTES')
+    }
+
+    parameters {
+        booleanParam(name: 'DEPLOYER', defaultValue: true, description: 'Deployer sur le cluster Kubernetes apres le build')
+    }
+
+    environment {
+        REGISTRY = 'nesrrine'
+        TAG      = "${env.BUILD_NUMBER}"
+        IMAGE    = "${REGISTRY}/va-frontend"
+    }
+
+    stages {
+        stage('Tests unitaires et couverture') {
+            when {
+                beforeAgent true
+                anyOf { changeset 'frontend/**'; triggeredBy 'UserIdCause' }
+            }
+            agent {
+                docker {
+                    // Node + Chromium pour Karma en mode headless
+                    image 'zenika/alpine-chrome:with-node'
+                    args '-u root:root --entrypoint='
+                    reuseNode true
+                }
+            }
+            environment {
+                CHROME_BIN = '/usr/bin/chromium-browser'
+            }
+            steps {
+                dir('frontend') {
+                    sh 'npm ci --no-audit --no-fund'
+                    // 38 tests Jasmine / Karma + rapport lcov pour SonarQube
+                    sh 'npm run test:ci'
+                }
+            }
+        }
+
+        stage('Analyse SonarQube') {
+            when {
+                beforeAgent true
+                anyOf { changeset 'frontend/**'; triggeredBy 'UserIdCause' }
+            }
+            agent {
+                docker {
+                    image 'sonarsource/sonar-scanner-cli:11'
+                    args '--entrypoint='
+                    reuseNode true
+                }
+            }
+            steps {
+                dir('frontend') {
+                    withSonarQubeEnv('SonarQube') {
+                        // Parametres dans frontend/sonar-project.properties
+                        sh 'sonar-scanner'
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            when { anyOf { changeset 'frontend/**'; triggeredBy 'UserIdCause' } }
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Image Docker (build + push)') {
+            when { anyOf { changeset 'frontend/**'; triggeredBy 'UserIdCause' } }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        # Build multi-etapes : compilation Angular puis image nginx
+                        docker build -t "$IMAGE:$TAG" -t "$IMAGE:latest" frontend
+                        docker push "$IMAGE:$TAG"
+                        docker push "$IMAGE:latest"
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh 'docker logout || true'
+                }
+            }
+        }
+
+        stage('Deploiement Kubernetes') {
+            when {
+                beforeAgent true
+                allOf {
+                    expression { params.DEPLOYER }
+                    anyOf { changeset 'frontend/**'; triggeredBy 'UserIdCause' }
+                }
+            }
+            agent {
+                docker {
+                    image 'bitnami/kubectl:1.30'
+                    args '--entrypoint='
+                    reuseNode true
+                }
+            }
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'sh k8s/deploy.sh "$REGISTRY" "$TAG" frontend'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Frontend ${env.TAG} construit, analyse et deploye."
+        }
+        failure {
+            echo 'Echec du pipeline frontend : consulter le stage en rouge.'
+        }
+    }
+}

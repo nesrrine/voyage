@@ -1,0 +1,164 @@
+// Pipeline CI/CD du backend (microservices Spring Boot).
+// Job Jenkins "voyages-backend" : Pipeline script from SCM, Script Path = backend/Jenkinsfile
+// Declenche a chaque push sur GitHub (webhook -> http://<jenkins>/github-webhook/).
+pipeline {
+    agent any
+
+    triggers {
+        githubPush()
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+        timeout(time: 60, unit: 'MINUTES')
+    }
+
+    parameters {
+        booleanParam(name: 'DEPLOYER', defaultValue: true, description: 'Deployer sur le cluster Kubernetes apres le build')
+    }
+
+    environment {
+        REGISTRY = 'nesrrine'                 // compte Docker Hub qui recoit les images
+        TAG      = "${env.BUILD_NUMBER}"      // une version d'image par build (tracabilite / retour arriere)
+        SERVICES = 'discovery-server api-gateway user-service voyage-service forum-service ai-service'
+    }
+
+    stages {
+        stage('Build et tests') {
+            // Seulement si le push touche le backend (ou lancement manuel "Build Now")
+            when {
+                beforeAgent true
+                anyOf {
+                    changeset 'backend/**'
+                    changeset 'k8s/**'
+                    changeset 'monitoring/**'
+                    triggeredBy 'UserIdCause'
+                }
+            }
+            agent {
+                docker {
+                    image 'maven:3.9.9-eclipse-temurin-17'
+                    args '-v va-maven-repo:/root/.m2'   // cache Maven partage entre les builds
+                    reuseNode true
+                }
+            }
+            steps {
+                dir('backend') {
+                    // Compilation, 91 tests JUnit / Mockito / MockMvc et rapports de couverture JaCoCo
+                    sh 'mvn -B verify'
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'backend/**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Analyse SonarQube') {
+            when {
+                beforeAgent true
+                anyOf { changeset 'backend/**'; triggeredBy 'UserIdCause' }
+            }
+            agent {
+                docker {
+                    image 'maven:3.9.9-eclipse-temurin-17'
+                    args '-v va-maven-repo:/root/.m2'
+                    reuseNode true
+                }
+            }
+            steps {
+                dir('backend') {
+                    // "SonarQube" = nom du serveur declare dans Administrer Jenkins > System
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                            mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
+                              -Dsonar.projectKey=voyages-affaires-backend \
+                              -Dsonar.projectName="Voyages & Affaires - Backend"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            when { anyOf { changeset 'backend/**'; triggeredBy 'UserIdCause' } }
+            steps {
+                // Necessite le webhook SonarQube -> http://<jenkins>/sonarqube-webhook/
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Images Docker (build + push)') {
+            when {
+                anyOf {
+                    changeset 'backend/**'
+                    changeset 'k8s/**'
+                    changeset 'monitoring/**'
+                    triggeredBy 'UserIdCause'
+                }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        for s in $SERVICES; do
+                            echo ">> Image $REGISTRY/va-$s:$TAG"
+                            docker build -t "$REGISTRY/va-$s:$TAG" -t "$REGISTRY/va-$s:latest" "backend/$s"
+                            docker push "$REGISTRY/va-$s:$TAG"
+                            docker push "$REGISTRY/va-$s:latest"
+                        done
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh 'docker logout || true'
+                }
+            }
+        }
+
+        stage('Deploiement Kubernetes') {
+            when {
+                beforeAgent true
+                allOf {
+                    expression { params.DEPLOYER }
+                    anyOf {
+                        changeset 'backend/**'
+                        changeset 'k8s/**'
+                        changeset 'monitoring/**'
+                        triggeredBy 'UserIdCause'
+                    }
+                }
+            }
+            agent {
+                docker {
+                    image 'bitnami/kubectl:1.30'
+                    args '--entrypoint='
+                    reuseNode true
+                }
+            }
+            steps {
+                // Fichier kubeconfig du cluster kubeadm enregistre comme credential "Secret file"
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'sh k8s/deploy.sh "$REGISTRY" "$TAG" backend'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Backend ${env.TAG} construit, analyse et deploye."
+        }
+        failure {
+            echo 'Echec du pipeline backend : consulter le stage en rouge.'
+        }
+    }
+}
