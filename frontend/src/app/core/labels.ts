@@ -1,6 +1,7 @@
 import { DomaineActivite, ObjetVoyage, Role } from './models';
 
-export const API_URL = 'http://localhost:8080/api';
+/** Chemin relatif : nginx (Docker / Kubernetes) ou le proxy de ng serve redirigent vers l'API Gateway. */
+export const API_URL = '/api';
 
 export const DOMAINES: Record<DomaineActivite, string> = {
   INFORMATIQUE: 'Informatique',

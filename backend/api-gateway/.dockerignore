@@ -1,0 +1,3 @@
+# Contexte de build minimal : seul le jar executable est envoye a Docker
+*
+!target/*.jar

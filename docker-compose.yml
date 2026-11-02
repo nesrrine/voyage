@@ -1,0 +1,162 @@
+# Stack complete Voyages & Affaires en conteneurs.
+#
+#   1. cd backend && mvn -DskipTests package        (construit les jars copies dans les images)
+#   2. docker compose up -d --build                 (application + supervision)
+#   3. docker compose --profile qualite up -d       (+ SonarQube)   |   --profile ci (+ Jenkins)
+#
+# Application : http://localhost:4200   Eureka : http://localhost:8761
+# Prometheus  : http://localhost:9090   Grafana : http://localhost:3000 (admin / admin)
+
+x-microservice: &microservice
+  restart: unless-stopped
+  environment: &env-commun
+    EUREKA_URL: http://discovery-server:8761/eureka
+    JWT_SECRET: ${JWT_SECRET:-dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
+    SPRING_DATASOURCE_USERNAME: root
+    SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-voyages}
+  depends_on:
+    discovery-server:
+      condition: service_healthy
+    mysql:
+      condition: service_healthy
+
+services:
+  # ---------- Base de donnees (une base par microservice, creees automatiquement) ----------
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-voyages}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-voyages}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------- Microservices ----------
+  discovery-server:
+    build: ./backend/discovery-server
+    image: ${REGISTRY:-nesrrine}/va-discovery-server:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+
+  user-service:
+    <<: *microservice
+    build: ./backend/user-service
+    image: ${REGISTRY:-nesrrine}/va-user-service:${TAG:-latest}
+    environment:
+      <<: *env-commun
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/va_users?createDatabaseIfNotExist=true&serverTimezone=UTC
+      APP_FRONTEND_URL: http://localhost:4200
+
+  voyage-service:
+    <<: *microservice
+    build: ./backend/voyage-service
+    image: ${REGISTRY:-nesrrine}/va-voyage-service:${TAG:-latest}
+    environment:
+      <<: *env-commun
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/va_voyages?createDatabaseIfNotExist=true&serverTimezone=UTC
+
+  forum-service:
+    <<: *microservice
+    build: ./backend/forum-service
+    image: ${REGISTRY:-nesrrine}/va-forum-service:${TAG:-latest}
+    environment:
+      <<: *env-commun
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/va_forum?createDatabaseIfNotExist=true&serverTimezone=UTC
+
+  ai-service:
+    build: ./backend/ai-service
+    image: ${REGISTRY:-nesrrine}/va-ai-service:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      JWT_SECRET: ${JWT_SECRET:-dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./backend/api-gateway
+    image: ${REGISTRY:-nesrrine}/va-api-gateway:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      JWT_SECRET: ${JWT_SECRET:-dm95YWdlcy1hZmZhaXJlcy1zZWNyZXQta2V5LXBvdXItbGUtcHJvamV0LWp3dC0yMDI2LWFuZ3VsYXItc3ByaW5n}
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  # ---------- Frontend Angular servi par nginx (redirige /api vers la gateway) ----------
+  frontend:
+    build: ./frontend
+    image: ${REGISTRY:-nesrrine}/va-frontend:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+
+  # ---------- Supervision ----------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus/prometheus-docker.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/voyages-affaires.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  # ---------- Outils (profils optionnels) ----------
+  sonarqube:
+    image: sonarqube:10.6-community
+    profiles: ["qualite"]
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+
+  jenkins:
+    build: ./ci/jenkins
+    profiles: ["ci"]
+    # root pour acceder au socket Docker de la machine (environnement de demonstration)
+    user: root
+    ports:
+      - "8090:8080"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      # Jenkins pilote le Docker de la machine pour construire et pousser les images
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  mysql-data:
+  sonar-data:
+  jenkins-home:
